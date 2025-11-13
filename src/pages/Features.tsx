@@ -1,81 +1,56 @@
-import { ShieldBan, Search, ShieldCheck, Lock, Laptop, DollarSign } from "lucide-react";
+import PageLayout from "@/components/layout/PageLayout";
+import { ContentError, ContentLoading } from "@/components/ContentState";
 import { Card } from "@/components/ui/card";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { useFeatureContent } from "@/hooks/useContentData";
+import { getIconByName } from "@/lib/icon-map";
+
+const accentBg: Record<string, string> = {
+  primary: "bg-primary/10 text-primary",
+  secondary: "bg-secondary/10 text-secondary",
+  accent: "bg-accent/10 text-accent",
+};
 
 const Features = () => {
-  const features = [
-    {
-      icon: ShieldBan,
-      title: "Block Harmful Content",
-      description: "Automatically block access to pornography, adult content, gambling sites, and violent or extremist material.",
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-    },
-    {
-      icon: Search,
-      title: "SafeSearch Enforcement",
-      description: "We force SafeSearch on popular search engines like Google, Bing, and DuckDuckGo, providing an extra layer of protection.",
-      color: "text-secondary",
-      bgColor: "bg-secondary/10",
-    },
-    {
-      icon: ShieldCheck,
-      title: "Malware & Phishing Protection",
-      description: "Our DNS blocks known malicious websites, protecting your family from viruses, ransomware, and scams.",
-      color: "text-accent",
-      bgColor: "bg-accent/10",
-    },
-    {
-      icon: Lock,
-      title: "No Tracking, Total Privacy",
-      description: "We do not log your browsing history or sell your data. Your privacy is our priority.",
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-    },
-    {
-      icon: Laptop,
-      title: "Works on All Devices",
-      description: "Once set up on your router, it protects every device—phones, laptops, tablets, smart TVs, and gaming consoles.",
-      color: "text-secondary",
-      bgColor: "bg-secondary/10",
-    },
-    {
-      icon: DollarSign,
-      title: "Completely Free",
-      description: "WequiGuard is a free service because we believe a safer internet should be accessible to everyone.",
-      color: "text-accent",
-      bgColor: "bg-accent/10",
-    },
-  ];
+  const { data, isPending, isError, refetch } = useFeatureContent();
+
+  if (isPending) {
+    return (
+      <PageLayout>
+        <ContentLoading message="Loading feature highlights..." />
+      </PageLayout>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <PageLayout>
+        <ContentError onRetry={() => refetch()} />
+      </PageLayout>
+    );
+  }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      
-      <main className="flex-1">
-        <section className="py-20 bg-gradient-feature">
+    <PageLayout>
+      <section className="bg-gradient-feature py-20">
           <div className="container">
-            <div className="text-center mb-16 space-y-4">
-              <h1 className="text-4xl md:text-5xl font-bold">Powerful Protection, Simple Setup</h1>
-              <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-                WequiGuard works at the network level, filtering content on every device connected to your Wi-Fi.
-              </p>
+            <div className="mb-16 space-y-4 text-center">
+              <h1 className="text-4xl font-bold md:text-5xl">{data.title}</h1>
+              <p className="mx-auto max-w-3xl text-lg text-muted-foreground">{data.description}</p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-              {features.map((feature, index) => {
-                const Icon = feature.icon;
+            <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {data.features.map((feature) => {
+                const Icon = getIconByName(feature.icon);
                 return (
-                  <Card 
-                    key={index} 
-                    className="p-8 space-y-4 shadow-soft hover:shadow-medium transition-all hover:-translate-y-1"
+                  <Card
+                    key={feature.title}
+                    className="space-y-4 p-8 shadow-soft transition-all hover:-translate-y-1 hover:shadow-medium"
                   >
-                    <div className={`w-16 h-16 rounded-2xl ${feature.bgColor} flex items-center justify-center`}>
-                      <Icon className={`h-8 w-8 ${feature.color}`} />
+                    <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${accentBg[feature.accent]}`}>
+                      <Icon className="h-8 w-8" aria-hidden="true" />
                     </div>
                     <h3 className="text-xl font-semibold">{feature.title}</h3>
-                    <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
+                    <p className="leading-relaxed text-muted-foreground">{feature.description}</p>
                   </Card>
                 );
               })}
@@ -83,20 +58,13 @@ const Features = () => {
           </div>
         </section>
 
-        <section className="py-20 bg-primary text-primary-foreground">
-          <div className="container text-center space-y-6">
-            <h2 className="text-3xl md:text-4xl font-bold">
-              Network-Level Protection That Just Works
-            </h2>
-            <p className="text-lg opacity-90 max-w-2xl mx-auto">
-              Unlike browser extensions or apps, WequiGuard protects at the DNS level. This means every device on your network is automatically protected without installing anything on each device.
-            </p>
+        <section className="bg-primary py-20 text-primary-foreground">
+          <div className="container space-y-6 text-center">
+            <h2 className="text-3xl font-bold md:text-4xl">{data.supportingStatement.title}</h2>
+            <p className="mx-auto max-w-2xl text-lg opacity-90">{data.supportingStatement.description}</p>
           </div>
         </section>
-      </main>
-
-      <Footer />
-    </div>
+    </PageLayout>
   );
 };
 

@@ -36,6 +36,21 @@ npm i
 npm run dev
 ```
 
+### Configure the Admin Monitor API
+
+The admin dashboard calls the authenticated monitor endpoints you shared. Create a `.env` file (you can copy `.env.example`) with the following variables so the frontend knows where to send requests:
+
+```sh
+cp .env.example .env
+```
+
+| Variable | Description |
+| --- | --- |
+| `VITE_ADMIN_API_BASE_URL` | Root URL for the monitor API (e.g., `http://localhost:8080`). |
+| `VITE_ADMIN_API_TOKEN` | Admin bearer token used for every request (the same token you use in Postman). |
+
+After updating `.env`, restart `npm run dev` so Vite can pick up the new environment values.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
