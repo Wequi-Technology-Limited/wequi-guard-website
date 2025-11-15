@@ -1,3 +1,5 @@
+import { getStoredAuthToken } from "@/lib/auth-storage";
+
 export type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface RequestOptions {
@@ -40,8 +42,12 @@ const request = async <T>(path: string, options: RequestOptions = {}): Promise<T
   if (body) {
     resolvedHeaders.set("Content-Type", resolvedHeaders.get("Content-Type") || "application/json");
   }
-  if (API_TOKEN && !resolvedHeaders.get("Authorization")) {
-    resolvedHeaders.set("Authorization", `Bearer ${API_TOKEN}`);
+  if (!resolvedHeaders.get("Authorization")) {
+    const runtimeToken = getStoredAuthToken();
+    const token = runtimeToken || API_TOKEN;
+    if (token) {
+      resolvedHeaders.set("Authorization", `Bearer ${token}`);
+    }
   }
 
   const init: RequestInit = {

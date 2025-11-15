@@ -1,6 +1,20 @@
 import { formatDistanceToNowStrict } from "date-fns";
-import { useState } from "react";
-import { AlertTriangle, Download, MoreHorizontal, RefreshCw, ShieldCheck, ShieldOff } from "lucide-react";
+import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
+import {
+  Activity,
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  MoreHorizontal,
+  PenLine,
+  Plus,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+} from "lucide-react";
 
 import AdminShell from "@/components/admin/AdminShell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -27,6 +41,7 @@ import {
   useDeleteOverride,
   useExportQueryFeed,
   useMonitorAlerts,
+  useMonitorApps,
   useMonitorCacheMetrics,
   useMonitorOverview,
   useMonitorPolicies,
@@ -35,12 +50,14 @@ import {
   useMonitorTlsStatus,
   useMonitorUpstreams,
   useMonitorUsers,
+  useMonitorDevices,
   useUpdatePolicy,
 } from "@/hooks/useAdminMonitor";
 import { cn } from "@/lib/utils";
 import type {
   CreateOverridePayload,
   MonitorAlert,
+  MonitorApp,
   MonitorCacheHotDomain,
   MonitorKpi,
   MonitorPolicy,
@@ -50,10 +67,13 @@ import type {
   QueryFeedFilters,
   QueryFeedRow,
 } from "@/types/admin";
+import type { LucideIcon } from "lucide-react";
 import { Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
 
-const ADMIN_NAV = [
+export const ADMIN_NAV = [
+  { label: "Profile", href: "/profile", description: "Account" },
   { label: "Dashboard (Overview)", href: "#dashboard", description: "Traffic & health" },
+  { label: "Apps", href: "#apps", description: "Integrations" },
   { label: "Alerts", href: "#alerts", description: "Notifications" },
   { label: "Live Feed", href: "#live-feed", description: "Realtime triage" },
   { label: "Users", href: "#users", description: "Accounts" },
@@ -66,7 +86,76 @@ const ADMIN_NAV = [
 
 const OVERVIEW_WINDOWS: MonitorWindow[] = ["10m", "1h", "24h"];
 
-const RESPONSE_ARRAY_KEYS = ["items", "data", "rows", "result", "results", "list", "users", "policies", "overrides", "alerts", "entries", "hot_domains", "hotDomains"] as const;
+const RESPONSE_ARRAY_KEYS = [
+  "items",
+  "data",
+  "rows",
+  "result",
+  "results",
+  "list",
+  "users",
+  "policies",
+  "overrides",
+  "alerts",
+  "entries",
+  "hot_domains",
+  "hotDomains",
+  "devices",
+] as const;
+
+const TRAFFIC_SLICE_COLORS: Record<string, string> = {
+  allow: "hsl(var(--primary))",
+  block: "hsl(var(--destructive))",
+  rewrite: "hsl(var(--secondary))",
+  error: "hsl(var(--muted-foreground))",
+  udp: "hsl(var(--primary))",
+  tcp: "hsl(var(--secondary))",
+  default: "hsl(var(--muted-foreground))",
+};
+
+const getTrafficSliceColor = (label: string) => TRAFFIC_SLICE_COLORS[label.toLowerCase()] ?? TRAFFIC_SLICE_COLORS.default;
+
+type HealthCardMeta = {
+  label: string;
+  icon: LucideIcon;
+  iconBg: string;
+  badge: string;
+  card?: string;
+  description?: string;
+};
+
+const HEALTH_STATUS_META: Record<MonitorHealthBadge["status"], HealthCardMeta> = {
+  healthy: {
+    label: "Healthy",
+    icon: CheckCircle2,
+    iconBg: "bg-emerald-50 text-emerald-600",
+    badge: "bg-emerald-100 text-emerald-700",
+    card: "hover:border-emerald-200",
+  },
+  degraded: {
+    label: "Degraded",
+    icon: Activity,
+    iconBg: "bg-amber-50 text-amber-600",
+    badge: "bg-amber-100 text-amber-700",
+    card: "hover:border-amber-200",
+  },
+  warning: {
+    label: "Warning",
+    icon: AlertTriangle,
+    iconBg: "bg-rose-50 text-rose-600",
+    badge: "bg-rose-100 text-rose-700",
+    card: "hover:border-rose-200",
+  },
+};
+
+const HEALTH_CARD_PLACEHOLDER: HealthCardMeta = {
+  label: "Pending",
+  icon: AlertCircle,
+  iconBg: "bg-slate-100 text-slate-500",
+  badge: "border border-dashed border-slate-200 text-slate-500",
+  card: "border-dashed",
+  description: "Connect a health source to fill this slot.",
+};
 
 const coerceArray = <T,>(input: unknown, options?: { allowObjectValues?: boolean }): T[] => {
   if (!input) return [];
@@ -86,58 +175,67 @@ const coerceArray = <T,>(input: unknown, options?: { allowObjectValues?: boolean
 };
 
 const SectionHeader = ({ title, description }: { title: string; description: string }) => (
-  <div>
-    <p className="text-xs font-semibold uppercase tracking-wide text-primary">{description}</p>
-    <h2 className="text-2xl font-bold">{title}</h2>
+  <div className="space-y-2">
+    <h2 className="text-3xl font-semibold tracking-tight">{title}</h2>
+    <p className="text-sm text-muted-foreground">{description}</p>
   </div>
+);
+
+const SurfaceCard = ({ className, ...props }: ComponentProps<typeof Card>) => (
+  <Card className={cn("rounded-2xl border border-border/70 bg-card/95 shadow-none", className)} {...props} />
 );
 
 const AdminDashboard = () => {
   const usersQuery = useMonitorUsers();
+  const appsQuery = useMonitorApps();
 
   return (
     <AdminShell navItems={ADMIN_NAV}>
-      <section id="dashboard" className="space-y-6">
+      <section id="dashboard" className="space-y-8">
         <SectionHeader title="Dashboard" description="At-a-glance health and traffic" />
         <OverviewSection />
       </section>
 
-      <section id="alerts" className="space-y-6">
+      <section id="apps">
+        <AppsSection query={appsQuery} />
+      </section>
+
+      <section id="alerts" className="space-y-8">
         <SectionHeader title="Alerts" description="Built-in monitoring rules" />
         <AlertsSection />
       </section>
 
-      <section id="live-feed" className="space-y-6">
+      <section id="live-feed" className="space-y-8">
         <SectionHeader title="Live Feed" description="Realtime visibility & triage" />
         <LiveFeedSection />
       </section>
 
-      <section id="users" className="space-y-6">
+      <section id="users" className="space-y-8">
         <SectionHeader title="Users" description="Manage accounts & ownership" />
         <UsersSection query={usersQuery} />
       </section>
 
-      <section id="devices" className="space-y-6">
+      <section id="devices" className="space-y-8">
         <SectionHeader title="Devices" description="Endpoint inventory" />
-        <DevicesSection query={usersQuery} />
+        <DevicesSection />
       </section>
 
-      <section id="policies" className="space-y-6">
+      <section id="policies" className="space-y-8">
         <SectionHeader title="Policies" description="Content control" />
         <PoliciesSection />
       </section>
 
-      <section id="overrides" className="space-y-6">
+      <section id="overrides" className="space-y-8">
         <SectionHeader title="Overrides" description="Allow / block exceptions" />
         <OverridesSection />
       </section>
 
-      <section id="health" className="space-y-6">
+      <section id="health" className="space-y-8">
         <SectionHeader title="Health" description="Upstreams & TLS" />
         <HealthSection />
       </section>
 
-      <section id="cache" className="space-y-6">
+      <section id="cache" className="space-y-8">
         <SectionHeader title="Cache" description="Savings & hot keys" />
         <CacheSection />
       </section>
@@ -164,12 +262,21 @@ const OverviewSection = () => {
   }
 
   const overview = overviewQuery.data;
-  const normalizeProtocolSplit = (
+  const normalizeTrafficSlices = (
     value?: Array<{ label: string; value: number; color?: string }> | Record<string, number>,
   ): Array<{ label: string; value: number; color?: string }> => {
-    if (Array.isArray(value)) return value;
+    if (Array.isArray(value)) {
+      return value.map((slice) => ({
+        ...slice,
+        color: slice.color ?? getTrafficSliceColor(slice.label),
+      }));
+    }
     if (value && typeof value === "object") {
-      return Object.entries(value).map(([label, rawValue]) => ({ label, value: Number(rawValue) || 0 }));
+      return Object.entries(value).map(([label, rawValue]) => ({
+        label,
+        value: Number(rawValue) || 0,
+        color: getTrafficSliceColor(label),
+      }));
     }
     return [];
   };
@@ -177,37 +284,41 @@ const OverviewSection = () => {
   const kpis = coerceArray<MonitorKpi>(overview.kpis, { allowObjectValues: true });
   const qpsSeries = coerceArray(overview.qps_vs_error, { allowObjectValues: true });
   const latencySeries = coerceArray(overview.latency_p95, { allowObjectValues: true });
-  const protocolSplit = normalizeProtocolSplit(overview.protocol_split);
+  const trafficSplit = normalizeTrafficSlices(overview.traffic_split ?? overview.protocol_split);
   const healthBadges = coerceArray(overview.health_badges, { allowObjectValues: true });
   const quickLinks = coerceArray(overview.quick_links, { allowObjectValues: true });
+  const displayHealthBadges = Array.from({ length: 4 }, (_, index) => healthBadges[index] ?? null);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Label className="text-xs font-semibold uppercase">Window</Label>
-        <Select value={window} onValueChange={(value) => setWindow(value as MonitorWindow)}>
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {OVERVIEW_WINDOWS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button variant="ghost" size="icon" onClick={() => overviewQuery.refetch()}>
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card/70 px-4 py-3">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span>Window</span>
+          <Select value={window} onValueChange={(value) => setWindow(value as MonitorWindow)}>
+            <SelectTrigger className="w-32 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {OVERVIEW_WINDOWS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button variant="outline" size="sm" className="ml-auto rounded-full px-4" onClick={() => overviewQuery.refetch()}>
           <RefreshCw className="h-4 w-4" />
+          Refresh
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
         {kpis.length ? (
           kpis.map((kpi, index) => {
             const cardKey = kpi.key ?? `kpi-${index}`;
             return (
-              <Card key={cardKey} className="shadow-sm">
+              <SurfaceCard key={cardKey}>
                 <CardHeader className="space-y-1">
                   <CardDescription>{kpi.label}</CardDescription>
                   <CardTitle className="text-3xl">{kpi.value}</CardTitle>
@@ -215,36 +326,44 @@ const OverviewSection = () => {
                 <CardContent>
                   <p className="text-sm text-muted-foreground">{kpi.helper ?? kpi.trend ?? ""}</p>
                 </CardContent>
-              </Card>
+              </SurfaceCard>
             );
           })
         ) : (
-          <Card className="sm:col-span-2 xl:col-span-5">
+          <SurfaceCard className="sm:col-span-2 xl:col-span-5">
             <CardHeader>
               <CardTitle>No KPI data</CardTitle>
               <CardDescription>Monitor API did not return KPI metrics.</CardDescription>
             </CardHeader>
-          </Card>
+          </SurfaceCard>
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
+      <div className="grid gap-5 lg:grid-cols-3">
+        <SurfaceCard>
           <CardHeader>
             <CardTitle>Latency (last {overview.latency?.window ?? window})</CardTitle>
             <CardDescription>P50 / P95 / P99</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-3 gap-4">
-            {["p50", "p95", "p99"].map((key) => (
-              <div key={key}>
-                <p className="text-xs uppercase text-muted-foreground">{key}</p>
-                <p className="text-2xl font-bold">{overview.latency?.[key as keyof typeof overview.latency] ?? 0} ms</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+            {["p50", "p95", "p99"].map((key) => {
+              const value =
+                overview.latency?.[key as keyof typeof overview.latency] ?? 0
 
-        <Card>
+              return (
+                <div key={key}>
+                  <p className="text-xs uppercase text-muted-foreground">{key}</p>
+                  <p className="text-2xl font-bold">
+                    {Number(value).toFixed(2)} ms
+                  </p>
+                </div>
+              )
+            })}
+          </CardContent>
+        </SurfaceCard>
+
+
+        <SurfaceCard>
           <CardHeader>
             <CardTitle>Cache Hit Ratio</CardTitle>
             <CardDescription>Answer cache savings</CardDescription>
@@ -252,18 +371,18 @@ const OverviewSection = () => {
           <CardContent className="space-y-4">
             <div>
               <p className="text-xs uppercase text-muted-foreground">10 minutes</p>
-              <Progress value={(overview.cache?.hit_ratio_10m ?? 0)} className="h-2" />
+              <Progress value={(overview.cache?.hit_ratio_10m ?? 0)} className="h-1.5 rounded-full" />
               <p className="text-sm font-semibold">{overview.cache?.hit_ratio_10m ?? 0}%</p>
             </div>
             <div>
               <p className="text-xs uppercase text-muted-foreground">1 hour</p>
-              <Progress value={(overview.cache?.hit_ratio_1h ?? 0)} className="h-2" />
+              <Progress value={(overview.cache?.hit_ratio_1h ?? 0)} className="h-1.5 rounded-full" />
               <p className="text-sm font-semibold">{overview.cache?.hit_ratio_1h ?? 0}%</p>
             </div>
           </CardContent>
-        </Card>
+        </SurfaceCard>
 
-        <Card>
+        <SurfaceCard>
           <CardHeader>
             <CardTitle>Secure Transport</CardTitle>
             <CardDescription>Handshake & TLS</CardDescription>
@@ -271,20 +390,22 @@ const OverviewSection = () => {
           <CardContent className="space-y-4">
             <div>
               <p className="text-xs uppercase text-muted-foreground">DoT Handshake</p>
-              <p className="text-3xl font-bold">{overview.handshake?.success_pct ?? 0}%</p>
-              <p className="text-xs text-muted-foreground">success (last {overview.handshake?.window ?? window})</p>
+              <p className="text-3xl font-bold">
+                {Number(overview.handshake?.success_pct ?? 0).toFixed(2)}%
+              </p> 
+               <p className="text-xs text-muted-foreground">success (last {overview.handshake?.window ?? window})</p>
             </div>
-            <div className="rounded-lg border p-3">
+            <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 p-3">
               <p className="text-xs uppercase text-muted-foreground">TLS cert ({overview.tls?.domain ?? "—"})</p>
               <p className="text-lg font-semibold">{overview.tls?.days_remaining ?? 0} days left</p>
               <Badge variant={overview.tls?.status === "ok" ? "default" : "destructive"}>Status: {overview.tls?.status ?? "unknown"}</Badge>
             </div>
           </CardContent>
-        </Card>
+        </SurfaceCard>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
+      <div className="grid gap-5 xl:grid-cols-3">
+        <SurfaceCard className="xl:col-span-2">
           <CardHeader>
             <CardTitle>QPS vs Error %</CardTitle>
             <CardDescription>Auto-refreshes every 10s</CardDescription>
@@ -313,9 +434,9 @@ const OverviewSection = () => {
               </LineChart>
             </ChartContainer>
           </CardContent>
-        </Card>
+        </SurfaceCard>
 
-        <Card>
+        <SurfaceCard>
           <CardHeader>
             <CardTitle>Latency P95</CardTitle>
             <CardDescription>
@@ -332,14 +453,14 @@ const OverviewSection = () => {
               </LineChart>
             </ChartContainer>
           </CardContent>
-        </Card>
+        </SurfaceCard>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
+      <div className="grid gap-5 lg:grid-cols-3">
+        <SurfaceCard>
           <CardHeader>
             <CardTitle>Traffic Split</CardTitle>
-            <CardDescription>Allow vs Block vs Rewrite</CardDescription>
+            <CardDescription>Allow · Block · Rewrite · Error</CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer
@@ -351,49 +472,69 @@ const OverviewSection = () => {
               }}
             >
               <PieChart>
-                <Pie data={protocolSplit} dataKey="value" nameKey="label" label>
-                  {protocolSplit.map((slice) => (
-                    <Cell key={slice.label} fill={slice.color} />
+                <Pie data={trafficSplit} dataKey="value" nameKey="label" label>
+                  {trafficSplit.map((slice) => (
+                    <Cell key={slice.label} fill={slice.color ?? "hsl(var(--muted-foreground))"} />
                   ))}
                 </Pie>
                 <ChartTooltip content={<ChartTooltipContent />} />
               </PieChart>
             </ChartContainer>
           </CardContent>
-        </Card>
+        </SurfaceCard>
 
-        <Card className="lg:col-span-2">
+        <SurfaceCard className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Health Badges</CardTitle>
             <CardDescription>Subsystem status</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
-            {healthBadges.map((badge) => (
-              <div key={badge.title} className="rounded-lg border bg-card/60 p-4">
-                <p className="text-xs uppercase text-muted-foreground">{badge.title}</p>
-                <p className="text-xl font-semibold capitalize">{badge.status}</p>
-                <p className="text-sm text-muted-foreground">{badge.description}</p>
-              </div>
-            ))}
-            {!healthBadges.length ? <p className="text-sm text-muted-foreground">No health badges.</p> : null}
+          <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {displayHealthBadges.map((badge, index) => {
+              const meta = badge ? HEALTH_STATUS_META[badge.status] : HEALTH_CARD_PLACEHOLDER;
+              const Icon = meta.icon;
+              return (
+                <div
+                  key={badge?.title ?? `health-placeholder-${index}`}
+                  className={cn(
+                    "flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+                    meta.card,
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", meta.iconBg)}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <span className={cn("rounded-full px-3 py-1 text-xs font-semibold capitalize", meta.badge)}>
+                      {meta.label}
+                    </span>
+                  </div>
+                  <div className="mt-4 space-y-1">
+                    <p className="text-sm font-semibold text-slate-900">{badge?.title ?? "Available slot"}</p>
+                    <p className="text-sm text-slate-500">
+                      {badge?.description ?? HEALTH_CARD_PLACEHOLDER.description}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </CardContent>
-        </Card>
+        </SurfaceCard>
       </div>
 
       {quickLinks.length ? (
-        <Card>
+        <SurfaceCard>
           <CardHeader>
             <CardTitle>Quick Links</CardTitle>
             <CardDescription>Jump into triage workflows</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-3">
             {quickLinks.map((link) => (
-              <Button key={link.label} variant="outline" size="sm" asChild>
+              <Button key={link.label} variant="outline" size="sm" className="rounded-full px-4" asChild>
                 <a href={link.href}>{link.label}</a>
               </Button>
             ))}
           </CardContent>
-        </Card>
+        </SurfaceCard>
       ) : null}
 
       {overview.empty_state ? (
@@ -406,6 +547,263 @@ const OverviewSection = () => {
     </div>
   );
 };
+
+type AppsQueryProps = ReturnType<typeof useMonitorApps>;
+type AppSort = "name" | "status" | "date";
+
+const AppsSection = ({ query }: { query: AppsQueryProps }) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<MonitorApp["status"] | "all">("all");
+  const [sortBy, setSortBy] = useState<AppSort>("name");
+
+  if (query.isLoading) {
+    return <AppsSectionSkeleton />;
+  }
+
+  if (query.isError || !query.data) {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Could not load apps</AlertTitle>
+        <AlertDescription>Please try again.</AlertDescription>
+      </Alert>
+    );
+  }
+
+  const apps = coerceArray<MonitorApp>(query.data?.items ?? query.data, { allowObjectValues: true });
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  const filtered = apps.filter((app) => {
+    const matchesSearch = normalizedSearch
+      ? app.name.toLowerCase().includes(normalizedSearch) || app.description.toLowerCase().includes(normalizedSearch)
+      : true;
+    const matchesStatus = statusFilter === "all" ? true : app.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const sorter: Record<AppSort, (a: MonitorApp, b: MonitorApp) => number> = {
+    name: (a, b) => a.name.localeCompare(b.name),
+    status: (a, b) => a.status.localeCompare(b.status),
+    date: (a, b) => {
+      const aTime = new Date(a.last_updated).getTime();
+      const bTime = new Date(b.last_updated).getTime();
+      return Number.isNaN(bTime) ? -1 : Number.isNaN(aTime) ? 1 : bTime - aTime;
+    },
+  };
+
+  const sorted = [...filtered].sort(sorter[sortBy]);
+  const statusOptions: Array<{ label: string; value: MonitorApp["status"] | "all" }> = [
+    { label: "All statuses", value: "all" },
+    { label: "Active", value: "active" },
+    { label: "Paused", value: "paused" },
+    { label: "Warning", value: "warning" },
+    { label: "Error", value: "error" },
+  ];
+
+  const sortOptions: Array<{ label: string; value: AppSort }> = [
+    { label: "Sort by: Name", value: "name" },
+    { label: "Sort by: Status", value: "status" },
+    { label: "Sort by: Last updated", value: "date" },
+  ];
+
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-2 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-slate-900">Apps</h2>
+          <p className="text-sm text-slate-500">Manage all connected apps and their statuses from this panel.</p>
+        </div>
+        <Button className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold sm:w-auto">
+          <Plus className="h-4 w-4" />
+          Add App
+        </Button>
+      </div>
+
+      <div className="space-y-6 px-6 py-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search apps..."
+              className="h-11 rounded-lg border-slate-200 bg-white pl-10 text-base text-slate-900 placeholder:text-slate-400 focus-visible:ring-primary"
+            />
+          </div>
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as MonitorApp["status"] | "all")}>
+              <SelectTrigger className="h-11 rounded-lg border-slate-200 text-sm text-slate-700 sm:w-48">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {statusOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={sortBy} onValueChange={(value) => setSortBy(value as AppSort)}>
+              <SelectTrigger className="h-11 rounded-lg border-slate-200 text-sm text-slate-700 sm:w-52">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {sortOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {sorted.length ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {sorted.map((app) => (
+              <AppCard key={app.id} app={app} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-500">
+              <Plus className="h-5 w-5" />
+            </div>
+            <p className="text-lg font-semibold text-slate-900">No apps yet</p>
+            <p className="text-sm text-slate-500">Connect your first app to get started.</p>
+            <Button className="rounded-lg px-4 py-2 text-sm font-semibold">
+              <Plus className="mr-2 h-4 w-4" />
+              Add App
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const statusStyles: Record<MonitorApp["status"], string> = {
+  active: "bg-emerald-50 text-emerald-700 border border-emerald-100",
+  paused: "bg-amber-50 text-amber-700 border border-amber-100",
+  warning: "bg-amber-50 text-amber-700 border border-amber-100",
+  error: "bg-red-50 text-red-700 border border-red-100",
+  disconnected: "bg-slate-100 text-slate-600 border border-slate-200",
+};
+
+const statusLabel: Record<MonitorApp["status"], string> = {
+  active: "Active",
+  paused: "Paused",
+  warning: "Warning",
+  error: "Error",
+  disconnected: "Disconnected",
+};
+
+const formatAppDate = (value?: string) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date);
+};
+
+const AppAvatar = ({ label }: { label: string }) => {
+  const initials = label
+    .split(" ")
+    .map((piece) => piece[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return (
+    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold uppercase text-primary">
+      {initials}
+    </div>
+  );
+};
+
+const AppIconButton = ({ children, label }: { children: ReactNode; label: string }) => (
+  <Button
+    variant="ghost"
+    size="icon"
+    className="h-10 w-10 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"
+    aria-label={label}
+    title={label}
+  >
+    {children}
+  </Button>
+);
+
+const AppCard = ({ app }: { app: MonitorApp }) => {
+  const infoItems = [
+    { label: "Users", value: app.users.toLocaleString() },
+    { label: "Last updated", value: formatAppDate(app.last_updated) },
+    { label: "Type", value: app.surface === "external" ? "External" : "Internal" },
+    app.category ? { label: "Category", value: app.category } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+
+  return (
+    <div className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <AppAvatar label={app.name} />
+          <div>
+            <p className="text-base font-semibold text-slate-900">{app.name}</p>
+            <p className="text-sm text-slate-500">{app.description}</p>
+          </div>
+        </div>
+        <span className={cn("rounded-full px-3 py-1 text-xs font-semibold capitalize", statusStyles[app.status])}>
+          {statusLabel[app.status]}
+        </span>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {infoItems.map((item) => (
+          <div key={item.label} className="space-y-1">
+            <p className="text-xs text-slate-500">{item.label}</p>
+            <p className="text-sm font-medium text-slate-900">{item.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-slate-500">
+          Created by <span className="font-medium text-slate-900">{app.created_by}</span>
+          {app.created_at ? ` · ${formatAppDate(app.created_at)}` : ""}
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button className="h-10 w-full rounded-lg px-4 text-sm font-semibold sm:w-auto">Manage</Button>
+          <div className="flex gap-2">
+            <AppIconButton label="Edit app">
+              <PenLine className="h-4 w-4" />
+            </AppIconButton>
+            <AppIconButton label="Delete app">
+              <Trash2 className="h-4 w-4" />
+            </AppIconButton>
+            <AppIconButton label="More actions">
+              <MoreHorizontal className="h-4 w-4" />
+            </AppIconButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AppsSectionSkeleton = () => (
+  <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <Skeleton className="h-8 w-40 rounded-lg" />
+      <Skeleton className="h-10 w-32 rounded-lg" />
+    </div>
+    <Skeleton className="h-11 w-full rounded-lg" />
+    <div className="grid gap-4 md:grid-cols-2">
+      <Skeleton className="h-64 w-full rounded-2xl" />
+      <Skeleton className="h-64 w-full rounded-2xl" />
+    </div>
+  </div>
+);
+
 
 const AlertsSection = () => {
   const alertsQuery = useMonitorAlerts();
@@ -437,19 +835,27 @@ const AlertsSection = () => {
 
   if (!alerts.length) {
     return (
-      <Card>
+      <SurfaceCard>
         <CardHeader>
           <CardTitle>No alerts</CardTitle>
           <CardDescription>All monitoring rules are passing.</CardDescription>
         </CardHeader>
-      </Card>
+      </SurfaceCard>
     );
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-5 md:grid-cols-2">
       {alerts.map((alert, index) => (
-        <Card key={alert.id} className="border-l-4" data-severity={alert.severity}>
+        <SurfaceCard
+          key={alert.id}
+          className={cn(
+            "relative overflow-hidden transition-colors",
+            alert.severity === "critical" && "border-destructive/60",
+            alert.severity === "warning" && "border-yellow-400/60",
+            alert.severity === "info" && "border-primary/40",
+          )}
+        >
           <CardHeader className="space-y-1">
             <div className="flex items-center gap-2">
               <Badge variant={alert.severity === "critical" ? "destructive" : alert.severity === "warning" ? "default" : "secondary"}>
@@ -462,7 +868,7 @@ const AlertsSection = () => {
           <CardContent>
             <p className="text-sm text-muted-foreground">{alert.description}</p>
           </CardContent>
-        </Card>
+        </SurfaceCard>
       ))}
     </div>
   );
@@ -508,96 +914,107 @@ const LiveFeedSection = () => {
   };
 
   return (
-    <Card>
+    <SurfaceCard>
       <CardHeader className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Select value={filters.time_range} onValueChange={(value) => applyFilter("time_range", value)}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Time" />
-            </SelectTrigger>
-            <SelectContent>
-              {[
-                { label: "Last 5m", value: "5m" },
-                { label: "Last 10m", value: "10m" },
-                { label: "Last 1h", value: "1h" },
-              ].map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-3">
+            <Select value={filters.time_range} onValueChange={(value) => applyFilter("time_range", value)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Time" />
+              </SelectTrigger>
+              <SelectContent>
+                {[
+                  { label: "Last 5m", value: "5m" },
+                  { label: "Last 10m", value: "10m" },
+                  { label: "Last 1h", value: "1h" },
+                ].map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={filters.action || "all"} onValueChange={(value) => applyFilter("action", value === "all" ? undefined : value)}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Action" />
-            </SelectTrigger>
-            <SelectContent>
-              {[
-                { label: "All actions", value: "all" },
-                { label: "Allow", value: "allow" },
-                { label: "Block", value: "block" },
-                { label: "Rewrite", value: "rewrite" },
-                { label: "Error", value: "error" },
-              ].map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select value={filters.action || "all"} onValueChange={(value) => applyFilter("action", value === "all" ? undefined : value)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Action" />
+              </SelectTrigger>
+              <SelectContent>
+                {[
+                  { label: "All actions", value: "all" },
+                  { label: "Allow", value: "allow" },
+                  { label: "Block", value: "block" },
+                  { label: "Rewrite", value: "rewrite" },
+                  { label: "Error", value: "error" },
+                ].map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={filters.proto || "all"} onValueChange={(value) => applyFilter("proto", value === "all" ? undefined : value)}>
-            <SelectTrigger className="w-[100px]">
-              <SelectValue placeholder="Proto" />
-            </SelectTrigger>
-            <SelectContent>
-              {[
-                { label: "Any", value: "all" },
-                { label: "UDP", value: "UDP" },
-                { label: "TCP", value: "TCP" },
-                { label: "DoT", value: "DoT" },
-              ].map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select value={filters.proto || "all"} onValueChange={(value) => applyFilter("proto", value === "all" ? undefined : value)}>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue placeholder="Proto" />
+              </SelectTrigger>
+              <SelectContent>
+                {[
+                  { label: "Any", value: "all" },
+                  { label: "UDP", value: "UDP" },
+                  { label: "TCP", value: "TCP" },
+                  { label: "DoT", value: "DoT" },
+                ].map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={filters.rcode || "all"} onValueChange={(value) => applyFilter("rcode", value === "all" ? undefined : value)}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Rcode" />
-            </SelectTrigger>
-            <SelectContent>
-              {[
-                { label: "Any", value: "all" },
-                { label: "NOERROR", value: "NOERROR" },
-                { label: "NXDOMAIN", value: "NXDOMAIN" },
-                { label: "SERVFAIL", value: "SERVFAIL" },
-              ].map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select value={filters.rcode || "all"} onValueChange={(value) => applyFilter("rcode", value === "all" ? undefined : value)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Rcode" />
+              </SelectTrigger>
+              <SelectContent>
+                {[
+                  { label: "Any", value: "all" },
+                  { label: "NOERROR", value: "NOERROR" },
+                  { label: "NXDOMAIN", value: "NXDOMAIN" },
+                  { label: "SERVFAIL", value: "SERVFAIL" },
+                ].map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Input
-            placeholder="Domain contains..."
-            className="w-64"
-            value={filters.search ?? ""}
-            onChange={(event) => applyFilter("search", event.target.value || undefined)}
-          />
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <Input
+              placeholder="Domain contains..."
+              className="w-full md:max-w-sm"
+              value={filters.search ?? ""}
+              onChange={(event) => applyFilter("search", event.target.value || undefined)}
+            />
 
-          <div className="flex flex-1 items-center justify-end gap-3">
-            <div className="flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-xs">
-              <Switch checked={live} onCheckedChange={setLive} id="live-toggle" />
-              <label htmlFor="live-toggle">{live ? "Live" : "Paused"}</label>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 rounded-full border border-border/70 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                <Switch checked={live} onCheckedChange={setLive} id="live-toggle" />
+                <label htmlFor="live-toggle">{live ? "Live" : "Paused"}</label>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full px-4"
+                onClick={handleExport}
+                disabled={exportMutation.isPending}
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={handleExport} disabled={exportMutation.isPending}>
-              <Download className="mr-2 h-4 w-4" /> Export CSV
-            </Button>
           </div>
         </div>
       </CardHeader>
@@ -613,7 +1030,7 @@ const LiveFeedSection = () => {
           </Alert>
         ) : (
           <>
-            <ScrollArea className="h-[360px] rounded-md border">
+            <ScrollArea className="h-[360px]">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -623,48 +1040,56 @@ const LiveFeedSection = () => {
                     <TableHead>Proto</TableHead>
                     <TableHead>QName · QType</TableHead>
                     <TableHead>Action</TableHead>
-                    <TableHead>Upstream</TableHead>
+                    <TableHead>Served From</TableHead>
                     <TableHead>Latency</TableHead>
                     <TableHead>Rcode</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {resolvedRows.map((row) => (
-                    <TableRow key={row.id} className="text-sm">
-                      <TableCell>{new Date(row.timestamp).toLocaleTimeString()}</TableCell>
-                      <TableCell>
-                        <p className="font-semibold">{row.user}</p>
-                        <p className="text-xs text-muted-foreground">{row.device}</p>
-                      </TableCell>
-                      <TableCell>
-                        <p>{row.client_ip}</p>
-                        <p className="text-xs text-muted-foreground">{row.asn}</p>
-                      </TableCell>
-                      <TableCell>{row.proto}</TableCell>
-                      <TableCell>
-                        <p className="truncate font-medium" title={row.qname}>
-                          {row.qname}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{row.qtype}</p>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getActionVariant(row.action)} className="capitalize">
-                          {row.action}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{row.upstream}</TableCell>
-                      <TableCell>{row.latency_ms} ms</TableCell>
-                      <TableCell>{row.rcode}</TableCell>
-                      <TableCell className="text-right">
-                        <RowActions
-                          qname={row.qname}
-                          onAllow={() => handleRowOverride({ user_id: row.user_id ?? "", domain: row.qname, action: "allow" })}
-                          onBlock={() => handleRowOverride({ user_id: row.user_id ?? "", domain: row.qname, action: "block" })}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {resolvedRows.map((row) => {
+                    const servedFromLabel = row.served_from ? row.served_from.replace(/_/g, " ") : undefined;
+                    return (
+                      <TableRow key={row.id} className="text-sm">
+                        <TableCell>{new Date(row.timestamp).toLocaleTimeString()}</TableCell>
+                        <TableCell>
+                          <p className="font-semibold">{row.user}</p>
+                          <p className="text-xs text-muted-foreground">{row.device}</p>
+                        </TableCell>
+                        <TableCell>
+                          <p>{row.client_ip}</p>
+                          <p className="text-xs text-muted-foreground">{row.asn}</p>
+                        </TableCell>
+                        <TableCell>{row.proto}</TableCell>
+                        <TableCell>
+                          <p className="truncate font-medium" title={row.qname}>
+                            {row.qname}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{row.qtype}</p>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getActionVariant(row.action)} className="capitalize">
+                            {row.action}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <p className="font-semibold capitalize">{servedFromLabel ?? (row.upstream ? "upstream" : "—")}</p>
+                          {row.upstream ? (
+                            <p className="text-xs text-muted-foreground">{row.upstream}</p>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>{row.latency_ms} ms</TableCell>
+                        <TableCell>{row.rcode}</TableCell>
+                        <TableCell className="text-right">
+                          <RowActions
+                            qname={row.qname}
+                            onAllow={() => handleRowOverride({ user_id: row.user_id ?? "", domain: row.qname, action: "allow" })}
+                            onBlock={() => handleRowOverride({ user_id: row.user_id ?? "", domain: row.qname, action: "block" })}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </ScrollArea>
@@ -672,7 +1097,7 @@ const LiveFeedSection = () => {
           </>
         )}
       </CardContent>
-    </Card>
+    </SurfaceCard>
   );
 };
 
@@ -696,7 +1121,7 @@ const UsersSection = ({ query }: { query: UsersQueryProps }) => {
   const users = coerceArray<MonitorUser>(query.data);
 
   return (
-    <Card>
+    <SurfaceCard>
       <CardHeader>
         <CardTitle>Users</CardTitle>
         <CardDescription>Accounts and ownership</CardDescription>
@@ -730,33 +1155,29 @@ const UsersSection = ({ query }: { query: UsersQueryProps }) => {
           </TableBody>
         </Table>
       </CardContent>
-    </Card>
+    </SurfaceCard>
   );
 };
 
-const DevicesSection = ({ query }: { query: UsersQueryProps }) => {
-  const users = coerceArray<MonitorUser>(query.data);
-  const devices = users.flatMap((user) =>
-    coerceArray<MonitorUserDevice>(user.devices, { allowObjectValues: true }).map((device) => ({
-      ...device,
-      userName: user.name ?? "Unknown",
-    })),
-  );
-
+const DevicesSection = () => {
   const [platformFilter, setPlatformFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const filteredDevices = devices.filter((device) => {
-    const platformMatch = platformFilter === "all" || device.platform === platformFilter;
-    const statusMatch = statusFilter === "all" || device.status === statusFilter;
-    return platformMatch && statusMatch;
-  });
+  const apiFilters = useMemo(
+    () => ({
+      platform: platformFilter === "all" ? undefined : platformFilter,
+      status: statusFilter === "all" ? undefined : statusFilter,
+    }),
+    [platformFilter, statusFilter],
+  );
 
-  if (query.isLoading) {
+  const devicesQuery = useMonitorDevices(apiFilters);
+
+  if (devicesQuery.isLoading) {
     return <Skeleton className="h-64 w-full" />;
   }
 
-  if (query.isError) {
+  if (devicesQuery.isError || !devicesQuery.data) {
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4" />
@@ -765,33 +1186,48 @@ const DevicesSection = ({ query }: { query: UsersQueryProps }) => {
     );
   }
 
+  const devices = coerceArray<MonitorUserDevice>(devicesQuery.data?.items ?? devicesQuery.data, { allowObjectValues: true });
+  const platformOptions = [
+    { label: "Any platform", value: "all" },
+    { label: "iOS", value: "ios" },
+    { label: "Android", value: "android" },
+    { label: "Windows", value: "windows" },
+    { label: "macOS", value: "mac" },
+    { label: "Linux", value: "linux" },
+    { label: "Other", value: "other" },
+  ];
+  const statusOptions = [
+    { label: "Any status", value: "all" },
+    { label: "Online", value: "online" },
+    { label: "Offline", value: "offline" },
+    { label: "Paused", value: "paused" },
+  ];
+
   return (
-    <Card>
+    <SurfaceCard>
       <CardHeader>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-3 rounded-2xl border border-border/70 bg-muted/30 p-3">
           <Select value={platformFilter} onValueChange={setPlatformFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Platform" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Any platform</SelectItem>
-              {["Android", "iOS", "Other"].map((platform) => (
-                <SelectItem key={platform} value={platform}>
-                  {platform}
+              {platformOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Any status</SelectItem>
-              {["Online", "Paused"].map((status) => (
-                <SelectItem key={status} value={status}>
-                  {status}
+              {statusOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -811,18 +1247,18 @@ const DevicesSection = ({ query }: { query: UsersQueryProps }) => {
             </TableRow>
           </TableHeader>
           <TableBody>
-              {filteredDevices.map((device) => (
+            {devices.map((device) => (
               <TableRow key={device.id}>
                 <TableCell>
                   <p className="font-semibold">{device.name}</p>
-                  <p className="text-xs text-muted-foreground">Owner: {device.userName}</p>
+                  <p className="text-xs text-muted-foreground">Owner: {device.user_name ?? "Unknown"}</p>
                 </TableCell>
                 <TableCell>{device.platform}</TableCell>
                 <TableCell className="font-mono text-xs">{device.hostname}</TableCell>
                 <TableCell>
-                  <p>{new Date(device.last_seen).toLocaleTimeString()}</p>
+                  <p>{device.last_seen ? new Date(device.last_seen).toLocaleTimeString() : "—"}</p>
                   <p className="text-xs text-muted-foreground">
-                    {device.ip} · {device.asn}
+                    {device.ip || "—"} · {device.asn || "—"}
                   </p>
                 </TableCell>
                 <TableCell>{device.policy}</TableCell>
@@ -833,9 +1269,9 @@ const DevicesSection = ({ query }: { query: UsersQueryProps }) => {
             ))}
           </TableBody>
         </Table>
-        {!filteredDevices.length ? <p className="mt-4 text-sm text-muted-foreground">No devices for the selected filters.</p> : null}
+        {!devices.length ? <p className="mt-4 text-sm text-muted-foreground">No devices for the selected filters.</p> : null}
       </CardContent>
-    </Card>
+    </SurfaceCard>
   );
 };
 
@@ -887,7 +1323,7 @@ const PoliciesSection = () => {
 
   return (
     <>
-      <Card>
+      <SurfaceCard>
         <CardHeader>
           <CardTitle>Policies</CardTitle>
           <CardDescription>Manage SafeSearch and category filters</CardDescription>
@@ -937,7 +1373,7 @@ const PoliciesSection = () => {
             </TableBody>
           </Table>
         </CardContent>
-      </Card>
+      </SurfaceCard>
 
       <Dialog open={!!selectedPolicy} onOpenChange={() => setSelectedPolicy(null)}>
         <DialogContent className="sm:max-w-2xl">
@@ -1033,13 +1469,21 @@ const OverridesSection = () => {
   const overrides = coerceArray(overridesQuery.data?.items ?? overridesQuery.data);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Label>User ID</Label>
-          <Input value={filterUserId} onChange={(event) => setFilterUserId(event.target.value)} placeholder="Filter by user" className="w-48" />
-          <Button variant="outline" size="sm" onClick={() => overridesQuery.refetch()}>
-            <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+    <SurfaceCard>
+      <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-muted/30 p-3 sm:flex-row sm:items-center">
+          <div className="flex flex-1 items-center gap-2">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">User ID</Label>
+            <Input
+              value={filterUserId}
+              onChange={(event) => setFilterUserId(event.target.value)}
+              placeholder="Filter by user"
+              className="w-full sm:w-48"
+            />
+          </div>
+          <Button variant="outline" size="sm" className="rounded-full px-4" onClick={() => overridesQuery.refetch()}>
+            <RefreshCw className="h-4 w-4" />
+            Refresh
           </Button>
         </div>
         <AddOverrideDialog onSubmit={handleCreate} />
@@ -1080,7 +1524,7 @@ const OverridesSection = () => {
           </TableBody>
         </Table>
       </CardContent>
-    </Card>
+    </SurfaceCard>
   );
 };
 
@@ -1097,7 +1541,7 @@ const AddOverrideDialog = ({ onSubmit }: { onSubmit: (payload: CreateOverridePay
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="rounded-full px-4">
           <ShieldCheck className="mr-2 h-4 w-4" /> Add Override
         </Button>
       </DialogTrigger>
@@ -1218,9 +1662,9 @@ const HealthSection = () => {
         </Table>
       </TabsContent>
 
-      <TabsContent value="tls" className="space-y-4 pt-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
+      <TabsContent value="tls" className="space-y-5 pt-4">
+        <div className="grid gap-5 md:grid-cols-2">
+          <SurfaceCard>
             <CardHeader>
               <CardTitle>TLS Certificate</CardTitle>
               <CardDescription>{tls.common_name}</CardDescription>
@@ -1233,8 +1677,8 @@ const HealthSection = () => {
               <p className="text-lg font-bold">{tls.days_remaining} days remaining</p>
               <Badge variant={tls.chain_ok ? "default" : "destructive"}>{tls.chain_ok ? "Chain OK" : "Chain issue"}</Badge>
             </CardContent>
-          </Card>
-          <Card>
+          </SurfaceCard>
+          <SurfaceCard>
             <CardHeader>
               <CardTitle>Renewal Timeline</CardTitle>
               <CardDescription>guard.wequitech.com:853</CardDescription>
@@ -1254,7 +1698,7 @@ const HealthSection = () => {
               </div>
               <Button variant="outline">Run handshake test now</Button>
             </CardContent>
-          </Card>
+          </SurfaceCard>
         </div>
       </TabsContent>
     </Tabs>
@@ -1290,8 +1734,8 @@ const CacheSection = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Label>Window</Label>
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-muted/30 px-4 py-3">
+        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Window</Label>
         <Select value={window} onValueChange={(value) => setWindow(value as MonitorWindow)}>
           <SelectTrigger className="w-32">
             <SelectValue />
@@ -1304,8 +1748,8 @@ const CacheSection = () => {
         </Select>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+      <div className="grid gap-5 md:grid-cols-3">
+        <SurfaceCard>
           <CardHeader>
             <CardTitle>Hit Ratio</CardTitle>
           </CardHeader>
@@ -1315,8 +1759,8 @@ const CacheSection = () => {
             <p className="mt-4 text-xs uppercase text-muted-foreground">1h</p>
             <p className="text-xl font-semibold">{cache.hit_ratio_1h}%</p>
           </CardContent>
-        </Card>
-        <Card>
+        </SurfaceCard>
+        <SurfaceCard>
           <CardHeader>
             <CardTitle>Items & Evictions</CardTitle>
           </CardHeader>
@@ -1326,8 +1770,8 @@ const CacheSection = () => {
             <p className="mt-4 text-xl font-semibold">{cache.evictions_per_min}/min</p>
             <p className="text-sm text-muted-foreground">Evictions</p>
           </CardContent>
-        </Card>
-        <Card>
+        </SurfaceCard>
+        <SurfaceCard>
           <CardHeader>
             <CardTitle>Negative hits</CardTitle>
           </CardHeader>
@@ -1335,10 +1779,10 @@ const CacheSection = () => {
             <p className="text-4xl font-bold">{cache.negative_hits}</p>
             <p className="text-sm text-muted-foreground">NXDOMAIN caching reduces upstream load</p>
           </CardContent>
-        </Card>
+        </SurfaceCard>
       </div>
 
-      <Card>
+      <SurfaceCard>
         <CardHeader>
           <CardTitle>Top Hot Domains</CardTitle>
         </CardHeader>
@@ -1366,15 +1810,15 @@ const CacheSection = () => {
             </TableBody>
           </Table>
         </CardContent>
-      </Card>
+      </SurfaceCard>
 
-      <Card>
+      <SurfaceCard>
         <CardHeader>
           <CardTitle>Latency Breakdown (10m)</CardTitle>
           <CardDescription>Cache vs Upstream vs Policy time</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex h-6 overflow-hidden rounded-full border">
+          <div className="flex h-6 overflow-hidden rounded-full border border-border/70 bg-muted/30">
             {segments.map((segment) => (
               <div
                 key={segment.label}
@@ -1394,7 +1838,7 @@ const CacheSection = () => {
             ))}
           </div>
         </CardContent>
-      </Card>
+      </SurfaceCard>
 
       <Alert variant="destructive">
         <ShieldOff className="h-4 w-4" />
@@ -1408,7 +1852,7 @@ const CacheSection = () => {
 const RowActions = ({ qname, onAllow, onBlock }: { qname: string; onAllow: () => void; onBlock: () => void }) => (
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="icon">
+      <Button variant="ghost" size="icon" className="rounded-full" aria-label="Domain actions" title="Domain actions">
         <MoreHorizontal className="h-4 w-4" />
       </Button>
     </DropdownMenuTrigger>

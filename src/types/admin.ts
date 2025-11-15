@@ -14,6 +14,8 @@ const COLLECTION_KEYS = [
   "users",
   "policies",
   "overrides",
+  "devices",
+  "apps",
 ] as const;
 
 type CollectionKey = (typeof COLLECTION_KEYS)[number];
@@ -102,6 +104,7 @@ export interface MonitorOverviewResponse {
   qps_vs_error: MonitorQpsVsErrorPoint[];
   latency_p95: MonitorLatencyPoint[];
   protocol_split: MonitorTrafficSlice[];
+  traffic_split?: MonitorTrafficSlice[];
   health_badges: MonitorHealthBadge[];
   quick_links?: MonitorQuickLink[];
   empty_state?: string;
@@ -114,6 +117,9 @@ export interface QueryFeedFilters {
   search?: string;
   domain_suffix?: string;
   rcode?: string;
+  served_from?: string;
+  start?: string;
+  end?: string;
   limit?: number;
   offset?: number;
   order?: "ASC" | "DESC";
@@ -135,6 +141,7 @@ export interface QueryFeedRow {
   upstream: string;
   latency_ms: number;
   rcode: string;
+  served_from?: string;
 }
 
 export type QueryFeedResponse = ApiCollectionResponse<QueryFeedRow, { total?: number }>;
@@ -149,6 +156,8 @@ export interface MonitorUserDevice {
   asn: string;
   policy: string;
   status: "Online" | "Paused";
+  user_id?: string;
+  user_name?: string;
 }
 
 export interface MonitorUser {
@@ -163,6 +172,22 @@ export interface MonitorUser {
 }
 
 export type MonitorUsersResponse = ApiCollectionResponse<MonitorUser>;
+export interface AdminAccountFilters {
+  search?: string;
+  role?: "consumer" | "analyst" | "admin";
+  last_seen_since?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AdminDevicesFilters {
+  search?: string;
+  platform?: string;
+  status?: string;
+  policy_id?: string;
+  limit?: number;
+  offset?: number;
+}
 
 export interface MonitorPolicy {
   id: string;
@@ -273,6 +298,44 @@ export interface MonitorAlert {
 
 export type MonitorAlertsResponse = ApiCollectionResponse<MonitorAlert>;
 
+export type MonitorAppStatus = "active" | "paused" | "warning" | "error" | "disconnected";
+
+export type MonitorAppSurface = "internal" | "external";
+
+export interface MonitorApp {
+  id: string;
+  name: string;
+  description: string;
+  status: MonitorAppStatus;
+  surface: MonitorAppSurface;
+  users: number;
+  last_updated: string;
+  created_by: string;
+  created_at: string;
+  category?: string;
+  icon?: string;
+}
+
+export type MonitorAppsResponse = ApiCollectionResponse<MonitorApp>;
+
+export interface MonitorAppsApiResponse {
+  apps?: Array<{
+    id?: string | number;
+    name?: string;
+    description?: string;
+    status?: string;
+    surface?: string;
+    active_users?: number;
+    users?: number;
+    last_updated?: string;
+    updated_at?: string;
+    created_at?: string;
+    created_by?: string;
+    category?: string;
+    icon?: string;
+  }>;
+}
+
 // Raw API payloads ----------------------------------------------------------
 
 export interface MonitorOverviewApiResponse {
@@ -280,10 +343,10 @@ export interface MonitorOverviewApiResponse {
   generated_at?: string;
   kpis?: Record<string, number>;
   latency?: Partial<MonitorLatencySummary>;
-  totals?: { total?: number; blocked?: number };
+  totals?: { total?: number; blocked?: number; rewrites?: number; errors?: number; [key: string]: number | undefined };
   cache?: { hit_ratio?: number; stats?: unknown; updated_at?: string };
   protocol_split?: Record<string, number>;
-  sparkline?: { qps?: Array<{ bucket: string; count: number }> };
+  sparkline?: { qps?: Array<{ bucket: string; count: number; errors?: number }> };
   pie?: Record<string, number>;
   health?: {
     upstream_pool?: number;
@@ -309,6 +372,7 @@ export interface QueryFeedApiRow {
   client_ip?: string;
   asn?: string;
   proto?: "UDP" | "TCP" | "DoT" | string;
+  protocol?: string;
   domain?: string;
   qname?: string;
   query_type?: string;
@@ -318,6 +382,8 @@ export interface QueryFeedApiRow {
   latency_ms?: number;
   timestamp?: string;
   upstream?: string;
+  rcode?: string;
+  served_from?: string;
 }
 
 export interface QueryFeedApiResponse {
@@ -327,28 +393,20 @@ export interface QueryFeedApiResponse {
   pagination?: { limit?: number; offset?: number; total?: number };
 }
 
-export interface MonitorUsersApiResponse {
-  users?: Array<{
+export interface AdminAccountsApiResponse {
+  data?: Array<{
     id: string | number;
-    username?: string;
     name?: string;
+    username?: string;
     email?: string;
-    is_active?: boolean;
-    created_at?: string;
-    last_seen?: string;
-    last_activity?: string;
-    total_queries?: number;
+    role?: "consumer" | "analyst" | "admin";
     device_count?: number;
-    preferences?: {
-      block_ads?: boolean;
-      block_malware?: boolean;
-      block_adult?: boolean;
-      block_social?: boolean;
-      enable_safe_search?: boolean;
-      [key: string]: unknown;
-    };
+    last_seen?: string;
+    last_login?: string;
+    queries_24h?: number;
+    policies?: string[];
   }>;
-  devices?: unknown[];
+  pagination?: { limit?: number; offset?: number; total?: number };
 }
 
 export interface MonitorPoliciesApiResponse {
@@ -386,6 +444,9 @@ export interface MonitorUpstreamsApiResponse {
     failures?: number;
     success_pct?: number;
     last_check?: string;
+    avg_latency_ms?: number;
+    p95_latency_ms?: number;
+    latency_ms?: number;
   }>;
 }
 
@@ -422,4 +483,26 @@ export interface MonitorAlertsApiResponse {
     description: string;
     triggered_at: string;
   }>;
+}
+
+export interface AdminDevicesApiResponse {
+  data?: Array<{
+    id: string | number;
+    user_id?: string | number;
+    user_name?: string;
+    name?: string;
+    platform?: string;
+    status?: string;
+    dot_hostname?: string;
+    hostname?: string;
+    last_seen?: string;
+    last_ip?: string;
+    last_asn?: string;
+    handshake_status?: string;
+    handshake_failures?: number;
+    policy?: string;
+    queries_24h?: number;
+    latency_p95?: number;
+  }>;
+  pagination?: { limit?: number; offset?: number; total?: number };
 }

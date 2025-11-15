@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { adminMonitorService } from "@/services/admin-monitor-service";
 import type {
+  AdminDevicesFilters,
   CreateOverridePayload,
   MonitorWindow,
   QueryFeedFilters,
@@ -39,6 +40,14 @@ export const useMonitorUsers = () =>
   useQuery({
     queryKey: ["admin", "users"],
     queryFn: () => adminMonitorService.getUsers(),
+    refetchOnWindowFocus: false,
+  });
+
+export const useMonitorDevices = (filters?: AdminDevicesFilters) =>
+  useQuery({
+    queryKey: ["admin", "devices", filters],
+    queryFn: () => adminMonitorService.getDevices(filters),
+    keepPreviousData: true,
     refetchOnWindowFocus: false,
   });
 
@@ -111,4 +120,11 @@ export const useMonitorAlerts = () =>
     queryKey: ["admin", "alerts"],
     queryFn: () => adminMonitorService.getAlerts(),
     refetchInterval: REFRESH.health,
+  });
+
+export const useMonitorApps = () =>
+  useQuery({
+    queryKey: ["admin", "apps"],
+    queryFn: () => adminMonitorService.getApps(),
+    refetchOnWindowFocus: false,
   });
