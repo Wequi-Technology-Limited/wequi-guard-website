@@ -1,5 +1,13 @@
 import { formatDistanceToNowStrict } from "date-fns";
-import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentProps,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import {
   Activity,
   AlertCircle,
@@ -37,9 +45,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import {
+  useCreatePolicy,
   useCreateOverride,
   useDeleteOverride,
   useExportQueryFeed,
+  useGlobalPolicy,
   useMonitorAlerts,
   useMonitorApps,
   useMonitorCacheMetrics,
@@ -52,10 +62,15 @@ import {
   useMonitorUsers,
   useMonitorDevices,
   useUpdatePolicy,
+  useUpdateGlobalPolicy,
 } from "@/hooks/useAdminMonitor";
 import { cn } from "@/lib/utils";
+import { POLICY_CATEGORY_KEYS, POLICY_SAFE_SEARCH_PROVIDERS } from "@/types/admin";
 import type {
+  CreatePolicyPayload,
   CreateOverridePayload,
+  GlobalPolicy,
+  GlobalPolicySettings,
   MonitorAlert,
   MonitorApp,
   MonitorCacheHotDomain,
@@ -64,6 +79,7 @@ import type {
   MonitorUser,
   MonitorUserDevice,
   MonitorWindow,
+  PolicyCategorySettings,
   QueryFeedFilters,
   QueryFeedRow,
 } from "@/types/admin";
@@ -222,7 +238,7 @@ const AdminDashboard = () => {
 
       <section id="policies" className="space-y-8">
         <SectionHeader title="Policies" description="Content control" />
-        <PoliciesSection />
+        <PoliciesSection usersQuery={usersQuery} />
       </section>
 
       <section id="overrides" className="space-y-8">
@@ -1275,35 +1291,177 @@ const DevicesSection = () => {
   );
 };
 
-const PoliciesSection = () => {
+type PoliciesSectionProps = {
+  usersQuery: ReturnType<typeof useMonitorUsers>;
+};
+
+type PolicyFormState = CreatePolicyPayload;
+
+const GLOBAL_POLICY_FIELDS: Array<{ key: keyof GlobalPolicySettings; label: string; description: string }> = [
+  {
+    key: "block_ads",
+    label: "Block ads",
+    description: "Filter advertising domains across all users.",
+  },
+  {
+    key: "block_malware",
+    label: "Block malware",
+    description: "Enforce threat protection blocklists.",
+  },
+  {
+    key: "block_adult",
+    label: "Block adult content",
+    description: "Restrict adult and explicit destinations.",
+  },
+  {
+    key: "block_social",
+    label: "Block social media",
+    description: "Limit access to social media platforms.",
+  },
+  {
+    key: "enable_safe_search",
+    label: "Force SafeSearch",
+    description: "Apply SafeSearch on supported providers.",
+  },
+];
+
+const buildGlobalPolicyState = (policy?: GlobalPolicy): GlobalPolicySettings => ({
+  block_ads: policy?.block_ads ?? false,
+  block_malware: policy?.block_malware ?? false,
+  block_adult: policy?.block_adult ?? false,
+  block_social: policy?.block_social ?? false,
+  enable_safe_search: policy?.enable_safe_search ?? false,
+});
+
+const createSafeSearchState = (): PolicyFormState["safe_search"] =>
+  POLICY_SAFE_SEARCH_PROVIDERS.reduce((acc, provider) => {
+    acc[provider] = false;
+    return acc;
+  }, {} as PolicyFormState["safe_search"]);
+
+const createCategoryState = (): PolicyFormState["categories"] =>
+  POLICY_CATEGORY_KEYS.reduce((acc, category) => {
+    acc[category] = false;
+    return acc;
+  }, {} as PolicyFormState["categories"]);
+
+const buildPolicyFormState = (policy?: MonitorPolicy, fallbackOwnerId?: string): PolicyFormState => ({
+  name: policy?.name ?? "",
+  description: policy?.description ?? "",
+  owner_user_id: policy?.owner_id ?? fallbackOwnerId ?? "",
+  safe_search: { ...createSafeSearchState(), ...(policy?.safe_search ?? {}) },
+  categories: { ...createCategoryState(), ...(policy?.category_settings ?? {}) },
+});
+
+const formatPolicyLabel = (value: string) =>
+  value
+    .split(/[_-]/)
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+
+const normalizePolicyPayload = (state: PolicyFormState): CreatePolicyPayload => {
+  const categories = Object.entries(state.categories ?? {}).reduce(
+    (acc, [key, enabled]) => {
+      acc[key as keyof PolicyCategorySettings] = Boolean(enabled);
+      return acc;
+    },
+    {} as PolicyCategorySettings,
+  );
+  let owner_user_id: string | number = state.owner_user_id;
+  if (typeof state.owner_user_id === "string") {
+    const trimmed = state.owner_user_id.trim();
+    if (trimmed && !Number.isNaN(Number(trimmed))) {
+      owner_user_id = Number(trimmed);
+    } else {
+      owner_user_id = trimmed;
+    }
+  }
+  return {
+    ...state,
+    owner_user_id,
+    safe_search: { ...state.safe_search },
+    categories,
+  };
+};
+
+const PoliciesSection = ({ usersQuery }: PoliciesSectionProps) => {
+  const globalPolicyQuery = useGlobalPolicy();
+  const updateGlobalPolicyMutation = useUpdateGlobalPolicy();
   const policiesQuery = useMonitorPolicies();
-  const updatePolicy = useUpdatePolicy();
+  const createPolicyMutation = useCreatePolicy();
+  const updatePolicyMutation = useUpdatePolicy();
   const { toast } = useToast();
   const [selectedPolicy, setSelectedPolicy] = useState<MonitorPolicy | null>(null);
-  const [formState, setFormState] = useState<Record<string, boolean>>({});
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [globalPolicyState, setGlobalPolicyState] = useState<GlobalPolicySettings>(() => buildGlobalPolicyState());
+  const [formState, setFormState] = useState<PolicyFormState>(() => buildPolicyFormState());
 
-  const openEdit = (policy: MonitorPolicy) => {
-    setSelectedPolicy(policy);
-    setFormState({
-      block_ads: policy.categories.includes("Ads"),
-      block_malware: policy.categories.includes("Malware"),
-      block_adult: policy.categories.includes("Adult"),
-      block_social: policy.categories.includes("Social"),
-      block_gambling: policy.categories.includes("Gambling"),
-      enable_safe_search: policy.safe_search,
-    });
+  useEffect(() => {
+    if (!globalPolicyQuery.data) return;
+    setGlobalPolicyState(buildGlobalPolicyState(globalPolicyQuery.data));
+  }, [globalPolicyQuery.data]);
+
+  const ownerOptions = useMemo<MonitorUser[]>(() => {
+    const owners = [...coerceArray<MonitorUser>(usersQuery.data?.items ?? usersQuery.data)];
+    if (selectedPolicy?.owner_id && !owners.some((owner) => owner.id === selectedPolicy.owner_id)) {
+      owners.push({
+        id: selectedPolicy.owner_id,
+        name: selectedPolicy.owner,
+        email: "",
+        role: "Analyst",
+        last_activity: "",
+        active_policy: selectedPolicy.name,
+        device_count: selectedPolicy.device_count,
+      });
+    }
+    return owners;
+  }, [selectedPolicy, usersQuery.data]);
+
+  useEffect(() => {
+    if (!isCreateOpen) return;
+    if (selectedPolicy) return;
+    if (formState.owner_user_id && formState.owner_user_id !== "") return;
+    if (!ownerOptions.length) return;
+    setFormState((prev) => ({ ...prev, owner_user_id: ownerOptions[0].id }));
+  }, [formState.owner_user_id, isCreateOpen, ownerOptions, selectedPolicy]);
+
+  const globalPolicy = globalPolicyQuery.data;
+  const globalPolicyUpdatedAt = globalPolicy?.updated_at ? new Date(globalPolicy.updated_at) : null;
+  const globalPolicyUpdatedRelative =
+    globalPolicyUpdatedAt && !Number.isNaN(globalPolicyUpdatedAt.getTime())
+      ? formatDistanceToNowStrict(globalPolicyUpdatedAt, { addSuffix: true })
+      : null;
+
+  const handleGlobalPolicyToggle = (key: keyof GlobalPolicySettings, value: boolean) => {
+    setGlobalPolicyState((prev) => ({ ...prev, [key]: value }));
   };
 
-  const submitPolicy = async () => {
-    if (!selectedPolicy) return;
+  const handleGlobalPolicySave = async () => {
     try {
-      await updatePolicy.mutateAsync({ policyUserId: selectedPolicy.id, payload: formState });
-      toast({ title: "Policy updated", description: selectedPolicy.name });
-      setSelectedPolicy(null);
+      const existed = Boolean(globalPolicy?.exists);
+      const result = await updateGlobalPolicyMutation.mutateAsync(globalPolicyState);
+      setGlobalPolicyState(buildGlobalPolicyState(result.policy));
+      const details = [
+        result.message,
+        typeof result.affected_users === "number" ? `${result.affected_users} users affected` : undefined,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      toast({
+        title: existed ? "Global policy updated" : "Global policy created",
+        description: details || "Global policy settings saved.",
+      });
     } catch (error) {
-      toast({ title: "Update failed", description: "Unable to update policy", variant: "destructive" });
+      toast({
+        title: "Global policy failed",
+        description: error instanceof Error ? error.message : "Unable to save global policy.",
+        variant: "destructive",
+      });
     }
   };
+
+  const policies = coerceArray<MonitorPolicy>(policiesQuery.data?.items ?? policiesQuery.data);
 
   if (policiesQuery.isLoading) {
     return <Skeleton className="h-64 w-full" />;
@@ -1318,19 +1476,143 @@ const PoliciesSection = () => {
     );
   }
 
-  const policies = coerceArray<MonitorPolicy>(policiesQuery.data?.items ?? policiesQuery.data);
-  const categoryOptions = coerceArray<string>(policiesQuery.data?.categories, { allowObjectValues: true });
+  const categorySet = new Set<string>(POLICY_CATEGORY_KEYS);
+  policies.forEach((policy) => {
+    Object.keys(policy.category_settings ?? {}).forEach((key) => categorySet.add(key));
+  });
+  Object.keys(formState.categories ?? {}).forEach((key) => categorySet.add(key));
+  const categoryOptions = Array.from(categorySet);
+
+  const closeEditDialog = () => {
+    setSelectedPolicy(null);
+    setFormState(buildPolicyFormState(undefined, ownerOptions[0]?.id ? String(ownerOptions[0].id) : undefined));
+  };
+
+  const closeCreateDialog = () => {
+    setIsCreateOpen(false);
+    setFormState(buildPolicyFormState(undefined, ownerOptions[0]?.id ? String(ownerOptions[0].id) : undefined));
+  };
+
+  const openEdit = (policy: MonitorPolicy) => {
+    setSelectedPolicy(policy);
+    setFormState(buildPolicyFormState(policy, policy.owner_id));
+  };
+
+  const openCreate = () => {
+    setSelectedPolicy(null);
+    setFormState(buildPolicyFormState(undefined, ownerOptions[0]?.id ? String(ownerOptions[0].id) : undefined));
+    setIsCreateOpen(true);
+  };
+
+  const handleCreate = async () => {
+    try {
+      await createPolicyMutation.mutateAsync(normalizePolicyPayload(formState));
+      toast({ title: "Policy created", description: formState.name || "New policy" });
+      closeCreateDialog();
+    } catch (error) {
+      toast({ title: "Create failed", description: String(error), variant: "destructive" });
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedPolicy) return;
+    try {
+      await updatePolicyMutation.mutateAsync({ policyId: selectedPolicy.id, payload: normalizePolicyPayload(formState) });
+      toast({ title: "Policy updated", description: selectedPolicy.name });
+      closeEditDialog();
+    } catch (error) {
+      toast({ title: "Update failed", description: "Unable to update policy", variant: "destructive" });
+    }
+  };
 
   return (
     <>
       <SurfaceCard>
-        <CardHeader>
-          <CardTitle>Policies</CardTitle>
-          <CardDescription>Manage SafeSearch and category filters</CardDescription>
+        <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>Global Policy</CardTitle>
+            <CardDescription>Baseline filtering applied before user or group policies.</CardDescription>
+          </div>
+          <Badge variant={globalPolicy?.exists ? "outline" : "destructive"} className="w-fit capitalize">
+            {globalPolicy?.exists ? "Active" : "Not configured"}
+          </Badge>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
+        <CardContent className="space-y-4">
+          {globalPolicyQuery.isLoading ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {GLOBAL_POLICY_FIELDS.map((field) => (
+                <Skeleton key={field.key} className="h-20 w-full rounded-2xl" />
+              ))}
+            </div>
+          ) : globalPolicyQuery.isError ? (
+            <Alert variant="destructive" className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              <div>
+                <AlertTitle className="text-sm font-medium">Unable to load global policy</AlertTitle>
+                <AlertDescription className="text-xs">Refresh the page or try again later.</AlertDescription>
+              </div>
+            </Alert>
+          ) : (
+            <>
+              <div className="grid gap-3 md:grid-cols-2">
+                {GLOBAL_POLICY_FIELDS.map((field) => (
+                  <div
+                    key={field.key}
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-border/70 bg-muted/30 px-4 py-3"
+                  >
+                    <div className="space-y-1">
+                      <p className="font-medium leading-tight">{field.label}</p>
+                      <p className="text-xs text-muted-foreground">{field.description}</p>
+                    </div>
+                    <Switch
+                      checked={globalPolicyState[field.key]}
+                      onCheckedChange={(checked) => handleGlobalPolicyToggle(field.key, checked)}
+                      disabled={updateGlobalPolicyMutation.isPending}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-muted-foreground">
+                  {globalPolicy?.exists
+                    ? `Last updated ${globalPolicyUpdatedRelative ?? "moments ago"}${
+                        globalPolicy?.updated_by ? ` · by #${globalPolicy.updated_by}` : ""
+                      }`
+                    : "Global policy has not been configured yet. Enable rules and save to create it."}
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    variant="outline"
+                    onClick={() => globalPolicyQuery.refetch()}
+                    disabled={globalPolicyQuery.isFetching || updateGlobalPolicyMutation.isPending}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh
+                  </Button>
+                  <Button onClick={handleGlobalPolicySave} disabled={updateGlobalPolicyMutation.isPending}>
+                    {globalPolicy?.exists ? "Save global policy" : "Create global policy"}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </SurfaceCard>
+
+      {/* <SurfaceCard> */}
+        {/* <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>Policies</CardTitle>
+            <CardDescription>Manage SafeSearch and category filters</CardDescription>
+          </div>
+          <Button onClick={openCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Policy
+          </Button>
+        </CardHeader> */}
+        {/* <CardContent> */}
+          {/* <Table> */}
+            {/* <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Owner</TableHead>
@@ -1340,91 +1622,227 @@ const PoliciesSection = () => {
                 <TableHead>Updated</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            </TableHeader>
-            <TableBody>
+            </TableHeader> */}
+            {/* <TableBody>
               {policies.map((policy) => (
                 <TableRow key={policy.id}>
-                  <TableCell>{policy.name}</TableCell>
-                  <TableCell>{policy.owner}</TableCell>
                   <TableCell>
-                    <Badge variant={policy.safe_search ? "default" : "secondary"}>{policy.safe_search ? "On" : "Off"}</Badge>
+                    <div className="space-y-1">
+                      <p className="font-medium">{policy.name}</p>
+                      {policy.description ? <p className="text-xs text-muted-foreground">{policy.description}</p> : null}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <p>{policy.owner}</p>
+                      {policy.owner_id ? (
+                        <p className="text-xs text-muted-foreground">User #{policy.owner_id}</p>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {policy.categories.map((category) => (
-                        <Badge key={category} variant="outline" className="text-xs">
-                          {category}
+                      {POLICY_SAFE_SEARCH_PROVIDERS.map((provider) => (
+                        <Badge
+                          key={`${policy.id}-${provider}`}
+                          variant={policy.safe_search[provider] ? "default" : "secondary"}
+                          className="text-xs capitalize"
+                        >
+                          {formatPolicyLabel(provider)}
                         </Badge>
                       ))}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {policy.categories.length ? (
+                        policy.categories.map((category) => (
+                          <Badge key={`${policy.id}-${category}`} variant="outline" className="text-xs">
+                            {category}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">None</span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>{policy.device_count}</TableCell>
                   <TableCell>
                     <p>{new Date(policy.updated_at).toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground">by {policy.updated_by}</p>
+                    <p className="text-xs text-muted-foreground">by {policy.updated_by ?? "System"}</p>
                   </TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant="outline" onClick={() => openEdit(policy)}>
+                      <PenLine className="mr-2 h-4 w-4" />
                       Edit
                     </Button>
                   </TableCell>
                 </TableRow>
               ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </SurfaceCard>
+            </TableBody> */}
+          {/* </Table> */}
+        {/* </CardContent> */}
+      {/* </SurfaceCard> */}
 
-      <Dialog open={!!selectedPolicy} onOpenChange={() => setSelectedPolicy(null)}>
+      <Dialog open={isCreateOpen} onOpenChange={(open) => (!open ? closeCreateDialog() : null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>New Policy</DialogTitle>
+            <DialogDescription>Create a policy for a specific owner and device group.</DialogDescription>
+          </DialogHeader>
+          <PolicyForm
+            formState={formState}
+            setFormState={setFormState}
+            ownerOptions={ownerOptions}
+            categoryOptions={categoryOptions}
+            submitting={createPolicyMutation.isPending}
+            onCancel={closeCreateDialog}
+            onSubmit={handleCreate}
+            submitLabel="Create policy"
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedPolicy} onOpenChange={(open) => (!open ? closeEditDialog() : null)}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Policy</DialogTitle>
+            <DialogDescription>Update SafeSearch controls and categories for this owner.</DialogDescription>
           </DialogHeader>
           {selectedPolicy ? (
-            <div className="space-y-4">
-              <div>
-                <Label>Name</Label>
-                <Input value={selectedPolicy.name} disabled />
-              </div>
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <p className="font-semibold">SafeSearch</p>
-                  <p className="text-sm text-muted-foreground">Google, Bing, YouTube, DuckDuckGo</p>
-                </div>
-                <Switch
-                  checked={formState.enable_safe_search}
-                  onCheckedChange={(checked) => setFormState((prev) => ({ ...prev, enable_safe_search: checked }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <p className="font-semibold">Categories</p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {categoryOptions.map((category) => (
-                    <label key={category} className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={Boolean(formState[`block_${category.toLowerCase()}` as keyof typeof formState])}
-                        onCheckedChange={(checked) =>
-                          setFormState((prev) => ({ ...prev, [`block_${category.toLowerCase()}`]: Boolean(checked) }))
-                        }
-                      />
-                      Block {category}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setSelectedPolicy(null)}>
-                  Cancel
-                </Button>
-                <Button onClick={submitPolicy} disabled={updatePolicy.isPending}>
-                  Save changes
-                </Button>
-              </div>
-            </div>
+            <PolicyForm
+              formState={formState}
+              setFormState={setFormState}
+              ownerOptions={ownerOptions}
+              categoryOptions={categoryOptions}
+              submitting={updatePolicyMutation.isPending}
+              onCancel={closeEditDialog}
+              onSubmit={handleUpdate}
+              submitLabel="Save changes"
+            />
           ) : null}
         </DialogContent>
       </Dialog>
     </>
+  );
+};
+
+type PolicyFormProps = {
+  formState: PolicyFormState;
+  setFormState: Dispatch<SetStateAction<PolicyFormState>>;
+  ownerOptions: MonitorUser[];
+  categoryOptions: string[];
+  submitting: boolean;
+  onSubmit: () => void;
+  onCancel: () => void;
+  submitLabel: string;
+};
+
+const PolicyForm = ({
+  formState,
+  setFormState,
+  ownerOptions,
+  categoryOptions,
+  submitting,
+  onSubmit,
+  onCancel,
+  submitLabel,
+}: PolicyFormProps) => {
+  const ownerValue = formState.owner_user_id ? String(formState.owner_user_id) : "";
+  const canSubmit = Boolean(formState.name.trim()) && Boolean(ownerValue);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-2">
+        <Label>Name</Label>
+        <Input value={formState.name} onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Description</Label>
+        <Textarea
+          value={formState.description ?? ""}
+          rows={3}
+          onChange={(event) => setFormState((prev) => ({ ...prev, description: event.target.value }))}
+          placeholder="Add context for this policy"
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label>Owner</Label>
+        <Select value={ownerValue} onValueChange={(value) => setFormState((prev) => ({ ...prev, owner_user_id: value }))}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select owner" />
+          </SelectTrigger>
+          <SelectContent>
+            {ownerOptions.length ? (
+              ownerOptions.map((owner) => (
+                <SelectItem key={owner.id} value={String(owner.id)}>
+                  {owner.name} {owner.email ? `(${owner.email})` : ""}
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem value="" disabled>
+                No owners available
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-3 rounded-lg border border-border/70 p-3">
+        <div>
+          <p className="font-semibold">SafeSearch</p>
+          <p className="text-sm text-muted-foreground">Toggle providers for this policy</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {POLICY_SAFE_SEARCH_PROVIDERS.map((provider) => (
+            <label key={provider} className="flex items-center justify-between rounded-lg border border-border/70 p-2">
+              <div>
+                <p className="font-medium">{formatPolicyLabel(provider)}</p>
+                <p className="text-xs text-muted-foreground capitalize">{provider}</p>
+              </div>
+              <Switch
+                checked={Boolean(formState.safe_search[provider])}
+                onCheckedChange={(checked) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    safe_search: { ...prev.safe_search, [provider]: Boolean(checked) },
+                  }))
+                }
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-3 rounded-lg border border-border/70 p-3">
+        <div>
+          <p className="font-semibold">Categories</p>
+          <p className="text-sm text-muted-foreground">Decide what to block for this owner</p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {categoryOptions.map((category) => (
+            <label key={category} className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={Boolean(formState.categories?.[category])}
+                onCheckedChange={(checked) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    categories: { ...prev.categories, [category]: Boolean(checked) },
+                  }))
+                }
+              />
+              Block {formatPolicyLabel(category)}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onCancel} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button onClick={onSubmit} disabled={!canSubmit || submitting}>
+          {submitLabel}
+        </Button>
+      </div>
+    </div>
   );
 };
 

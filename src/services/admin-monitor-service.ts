@@ -1,10 +1,16 @@
-import { adminApiClient } from "@/lib/admin-api-client";
+import { ApiError, adminApiClient } from "@/lib/admin-api-client";
+import { POLICY_CATEGORY_KEYS, POLICY_SAFE_SEARCH_PROVIDERS } from "@/types/admin";
 import type {
   AdminAccountFilters,
   AdminAccountsApiResponse,
   AdminDevicesApiResponse,
   AdminDevicesFilters,
+  CreatePolicyPayload,
   CreateOverridePayload,
+  GlobalPolicy,
+  GlobalPolicyApiResponse,
+  GlobalPolicyMutationResponse,
+  GlobalPolicySettings,
   MonitorApp,
   MonitorAppsApiResponse,
   MonitorAppsResponse,
@@ -29,6 +35,10 @@ import type {
   MonitorWindow,
   QueryFeedRow,
   QueryFeedApiResponse,
+  PolicyCategoryKey,
+  PolicyCategorySettings,
+  PolicySafeSearchProvider,
+  PolicySafeSearchSettings,
   QueryFeedFilters,
   QueryFeedResponse,
   UpdatePolicyPayload,
@@ -68,6 +78,36 @@ const normalizeDeviceStatus = (value?: string): "Online" | "Paused" => {
   if (value?.toLowerCase() === "online") return "Online";
   return "Paused";
 };
+
+const DEFAULT_GLOBAL_POLICY: GlobalPolicy = {
+  block_ads: false,
+  block_malware: false,
+  block_adult: false,
+  block_social: false,
+  enable_safe_search: false,
+  exists: false,
+  updated_at: undefined,
+  updated_by: undefined,
+};
+
+const transformGlobalPolicy = (policy?: GlobalPolicyApiResponse["policy"]): GlobalPolicy => ({
+  ...DEFAULT_GLOBAL_POLICY,
+  block_ads: policy?.block_ads ?? false,
+  block_malware: policy?.block_malware ?? false,
+  block_adult: policy?.block_adult ?? false,
+  block_social: policy?.block_social ?? false,
+  enable_safe_search: policy?.enable_safe_search ?? false,
+  exists: Boolean(policy),
+  updated_at: policy?.updated_at,
+  updated_by:
+    policy?.updated_by !== undefined && policy?.updated_by !== null ? String(policy.updated_by) : undefined,
+});
+
+const resolveGlobalPolicyMutation = (payload: GlobalPolicyApiResponse): GlobalPolicyMutationResponse => ({
+  message: payload.message,
+  affected_users: payload.affected_users,
+  policy: transformGlobalPolicy(payload.policy),
+});
 
 const transformOverview = (payload: MonitorOverviewApiResponse): MonitorOverviewResponse => {
   const generatedAt = payload.generated_at ?? payload.cache?.updated_at ?? new Date().toISOString();
@@ -232,25 +272,68 @@ const transformDevices = (payload: AdminDevicesApiResponse): MonitorDevicesRespo
   return { items, total: payload.pagination?.total ?? items.length };
 };
 
-const transformPolicies = (payload: MonitorPoliciesApiResponse): MonitorPoliciesResponse => {
-  const items = (payload.policies ?? []).map((policy) => ({
-    id: String(policy.user_id),
-    owner: policy.username ?? `User ${policy.user_id}`,
-    name: `${policy.username ?? "User"} Policy`,
-    safe_search: policy.enable_safe_search ?? false,
-    categories: [
-      policy.block_ads ? "Ads" : null,
-      policy.block_malware ? "Malware" : null,
-      policy.block_adult ? "Adult" : null,
-      policy.block_social ? "Social" : null,
-      policy.block_gambling ? "Gambling" : null,
-    ].filter(Boolean) as string[],
-    device_count: 0,
-    updated_at: policy.updated_at ?? new Date().toISOString(),
-    updated_by: policy.username ?? "System",
-  }));
+const DEFAULT_SAFE_SEARCH: PolicySafeSearchSettings = POLICY_SAFE_SEARCH_PROVIDERS.reduce(
+  (acc, provider) => {
+    acc[provider] = false;
+    return acc;
+  },
+  {} as PolicySafeSearchSettings,
+);
 
-  return { items, categories: ["Ads", "Malware", "Adult", "Social", "Gambling"] };
+const normalizeSafeSearch = (value?: Partial<PolicySafeSearchSettings>): PolicySafeSearchSettings => {
+  const safeSearch: PolicySafeSearchSettings = { ...DEFAULT_SAFE_SEARCH };
+  Object.entries(value ?? {}).forEach(([provider, enabled]) => {
+    if (provider in safeSearch) {
+      safeSearch[provider as PolicySafeSearchProvider] = Boolean(enabled);
+    }
+  });
+  return safeSearch;
+};
+
+const normalizeCategorySettings = (value?: string[] | PolicyCategorySettings): PolicyCategorySettings => {
+  const categories = {} as PolicyCategorySettings;
+  for (const key of POLICY_CATEGORY_KEYS) {
+    categories[key] = false;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((category) => {
+      categories[category as PolicyCategoryKey] = true;
+    });
+  } else if (value && typeof value === "object") {
+    Object.entries(value).forEach(([key, enabled]) => {
+      categories[key as PolicyCategoryKey] = Boolean(enabled);
+    });
+  }
+  return categories;
+};
+
+const transformPolicies = (payload: MonitorPoliciesApiResponse): MonitorPoliciesResponse => {
+  const items = (payload.policies ?? []).map((policy) => {
+    const safe_search = normalizeSafeSearch(policy.safe_search);
+    const category_settings = normalizeCategorySettings(policy.categories);
+    const enabledCategories = Object.entries(category_settings)
+      .filter(([, enabled]) => enabled)
+      .map(([key]) => toTitle(key));
+    const ownerId = policy.owner_id ?? policy.owner_user_id;
+    const resolvedId = policy.id ?? ownerId ?? policy.name ?? policy.owner_name ?? Date.now();
+    return {
+      id: String(resolvedId),
+      name: policy.name ?? `Policy ${policy.id ?? ""}`.trim(),
+      description: policy.description ?? "",
+      owner: policy.owner_name ?? (ownerId ? `User ${ownerId}` : "Unknown"),
+      owner_id: ownerId ? String(ownerId) : undefined,
+      safe_search,
+      categories: enabledCategories,
+      category_settings,
+      device_count: policy.assigned_devices ?? 0,
+      assigned_devices: policy.assigned_devices ?? 0,
+      updated_at: policy.updated_at ?? new Date().toISOString(),
+      updated_by: policy.updated_by_name ?? (policy.updated_by ? `User ${policy.updated_by}` : policy.owner_name ?? "System"),
+      updated_by_name: policy.updated_by_name,
+    };
+  });
+
+  return { items, categories: POLICY_CATEGORY_KEYS.map((key) => toTitle(key)) };
 };
 
 const transformOverrides = (payload: MonitorOverridesApiResponse): MonitorOverridesResponse => {
@@ -499,8 +582,28 @@ export const adminMonitorService = {
     return transformPolicies(response);
   },
 
-  updatePolicy: (policyUserId: string, payload: UpdatePolicyPayload) =>
-    adminApiClient.put<void>(`${BASE}/policies/${policyUserId}`, { body: payload }),
+  getGlobalPolicy: async () => {
+    try {
+      const response = await adminApiClient.get<GlobalPolicyApiResponse>(`${BASE}/policies/global`);
+      return transformGlobalPolicy(response.policy);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return transformGlobalPolicy(undefined);
+      }
+      throw error;
+    }
+  },
+
+  updateGlobalPolicy: async (payload: GlobalPolicySettings) => {
+    const response = await adminApiClient.put<GlobalPolicyApiResponse>(`${BASE}/policies/global`, { body: payload });
+    return resolveGlobalPolicyMutation(response);
+  },
+
+  createPolicy: (payload: CreatePolicyPayload) =>
+    adminApiClient.post<{ message: string; policy_id: string }>(`${BASE}/policies`, { body: payload }),
+
+  updatePolicy: (policyId: string, payload: UpdatePolicyPayload) =>
+    adminApiClient.put<{ message: string }>(`${BASE}/policies/${policyId}`, { body: payload }),
 
   getOverrides: async (userId?: string) => {
     const response = await adminApiClient.get<MonitorOverridesApiResponse>(`${BASE}/overrides`, {

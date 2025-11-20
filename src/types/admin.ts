@@ -189,28 +189,69 @@ export interface AdminDevicesFilters {
   offset?: number;
 }
 
+export const POLICY_SAFE_SEARCH_PROVIDERS = ["google", "bing", "youtube", "duckduckgo"] as const;
+export const POLICY_CATEGORY_KEYS = ["ads", "adult", "gambling", "malware", "social"] as const;
+
+export type PolicySafeSearchProvider = (typeof POLICY_SAFE_SEARCH_PROVIDERS)[number];
+export type PolicySafeSearchSettings = Record<PolicySafeSearchProvider, boolean>;
+
+export type PolicyCategoryKey = (typeof POLICY_CATEGORY_KEYS)[number] | (string & {});
+export type PolicyCategorySettings = Record<PolicyCategoryKey, boolean>;
+
+export interface GlobalPolicySettings {
+  block_ads: boolean;
+  block_malware: boolean;
+  block_adult: boolean;
+  block_social: boolean;
+  enable_safe_search: boolean;
+}
+
+export interface GlobalPolicy extends GlobalPolicySettings {
+  exists: boolean;
+  updated_at?: string;
+  updated_by?: string;
+}
+
+export interface GlobalPolicyMutationResponse {
+  message?: string;
+  affected_users?: number;
+  policy: GlobalPolicy;
+}
+
+export interface GlobalPolicyApiResponse {
+  policy?: Partial<GlobalPolicySettings> & { updated_at?: string; updated_by?: string | number };
+  message?: string;
+  affected_users?: number;
+}
+
 export interface MonitorPolicy {
   id: string;
-  owner: string;
   name: string;
-  safe_search: boolean;
+  description?: string;
+  owner: string;
+  owner_id?: string;
+  safe_search: PolicySafeSearchSettings;
   categories: string[];
+  category_settings: PolicyCategorySettings;
   device_count: number;
+  assigned_devices?: number;
   updated_at: string;
-  updated_by: string;
+  updated_by?: string;
+  updated_by_name?: string;
 }
 
 export type MonitorPoliciesResponse = ApiCollectionResponse<MonitorPolicy, { categories?: string[] }>;
 
-export interface UpdatePolicyPayload {
-  block_ads?: boolean;
-  block_malware?: boolean;
-  block_adult?: boolean;
-  block_social?: boolean;
-  block_gambling?: boolean;
-  enable_safe_search?: boolean;
+type PolicyPayload = {
+  name: string;
   description?: string;
-}
+  owner_user_id: string | number;
+  safe_search: PolicySafeSearchSettings;
+  categories: PolicyCategorySettings;
+};
+
+export type CreatePolicyPayload = PolicyPayload;
+export type UpdatePolicyPayload = PolicyPayload;
 
 export interface MonitorOverride {
   id: string;
@@ -411,15 +452,18 @@ export interface AdminAccountsApiResponse {
 
 export interface MonitorPoliciesApiResponse {
   policies?: Array<{
-    user_id: string | number;
-    username?: string;
+    id: string | number;
+    name?: string;
+    description?: string;
+    owner_id?: string | number;
+    owner_name?: string;
+    owner_user_id?: string | number;
+    safe_search?: Partial<Record<PolicySafeSearchProvider, boolean>>;
+    categories?: string[] | PolicyCategorySettings;
+    assigned_devices?: number;
     updated_at?: string;
-    block_ads?: boolean;
-    block_malware?: boolean;
-    block_adult?: boolean;
-    block_social?: boolean;
-    block_gambling?: boolean;
-    enable_safe_search?: boolean;
+    updated_by?: string | number;
+    updated_by_name?: string;
   }>;
 }
 

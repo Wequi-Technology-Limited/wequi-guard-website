@@ -3,7 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminMonitorService } from "@/services/admin-monitor-service";
 import type {
   AdminDevicesFilters,
+  CreatePolicyPayload,
   CreateOverridePayload,
+  GlobalPolicySettings,
   MonitorWindow,
   QueryFeedFilters,
   UpdatePolicyPayload,
@@ -57,13 +59,39 @@ export const useMonitorPolicies = () =>
     queryFn: () => adminMonitorService.getPolicies(),
   });
 
+export const useGlobalPolicy = () =>
+  useQuery({
+    queryKey: ["admin", "policies", "global"],
+    queryFn: () => adminMonitorService.getGlobalPolicy(),
+  });
+
+export const useCreatePolicy = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreatePolicyPayload) => adminMonitorService.createPolicy(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "policies"] });
+    },
+  });
+};
+
 export const useUpdatePolicy = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ policyUserId, payload }: { policyUserId: string; payload: UpdatePolicyPayload }) =>
-      adminMonitorService.updatePolicy(policyUserId, payload),
+    mutationFn: ({ policyId, payload }: { policyId: string; payload: UpdatePolicyPayload }) =>
+      adminMonitorService.updatePolicy(policyId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "policies"] });
+    },
+  });
+};
+
+export const useUpdateGlobalPolicy = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: GlobalPolicySettings) => adminMonitorService.updateGlobalPolicy(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "policies", "global"] });
     },
   });
 };
