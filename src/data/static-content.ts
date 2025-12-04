@@ -8,101 +8,144 @@ import type {
 } from "@/types/content";
 
 export const dnsServers = {
-  primary: "45.90.28.0",
-  secondary: "45.90.30.0",
+  primary: "34.61.93.47",
+  secondary: "Coming soon",
+} as const;
+
+// DNS server name
+export const dnsServerNames = {
+  primary: "guard.wequitech.com",
+  secondary: "Coming soon",
 } as const;
 
 export const homeContent: HomeContent = {
   hero: {
-    title: "Take Back Control of Your Internet",
+    title: "Free Family-Safe DNS That Blocks Adult Content & Online Threats",
     description:
-      "WequiGuard is a free, intelligent DNS filter that automatically blocks inappropriate content like pornography, gambling, and malicious websites across your entire home network.",
-    primaryCta: { label: "Get Started for Free", href: "/setup", variant: "secondary" },
-    secondaryCta: { label: "Learn More →", href: "/features", variant: "outline" },
+      "WequiGuard is a free, privacy-first DNS parental control filter that enforces SafeSearch and blocks pornography, gambling, malware, and scam sites across every device on your home Wi-Fi network.",
+    primaryCta: {
+      label: "Start Free Protection",
+      href: "/setup",
+      variant: "secondary",
+    },
+    secondaryCta: {
+      label: "See how it works →",
+      href: "/features",
+      variant: "outline",
+    },
     media: {
-      type: "video",
-      provider: "youtube",
-      videoId: "dQw4w9WgXcQ",
-      title: "WequiGuard walkthrough", // optional, becomes iframe title
+      type: "image",
+      src: heroImage,
+      alt: "WequiGuard dashboard showing DNS filtering and blocked threats across home devices",
     },
   },
   socialProof: [
-    { icon: "award", label: "Featured in TechFamily Magazine", description: "Industry trusted" },
-    { icon: "users", label: "Families Worldwide", description: "Thousands protected" },
-    { icon: "zap", label: "Parenting Choice Award 2024", description: "Independent recognition" },
+    {
+      icon: "zap",
+      label: "5-minute DNS setup",
+      description:
+        "No apps to install—just swap your DNS servers once to protect the whole home network.",
+    },
+    {
+      icon: "shieldCheck",
+      label: "Network-wide parental control",
+      description:
+        "Phones, laptops, tablets, TVs, consoles, and guests all inherit the same family-safe DNS filtering.",
+    },
+    {
+      icon: "lock",
+      label: "Privacy-first, zero-log",
+      description:
+        "We don’t log or sell your browsing history. Your DNS data is used only to resolve and protect.",
+    },
   ],
   steps: [
     {
       icon: "shield",
-      title: "Choose Your Protection Level",
-      description: "Select from our pre-configured security filters tailored to your family's needs.",
+      title: "Pick your safety level",
+      description:
+        "Choose a family-friendly DNS profile tuned to block adult content, gambling, and other harmful categories while keeping everyday sites accessible.",
       accent: "primary",
     },
     {
       icon: "settings",
-      title: "Update Your DNS Settings",
-      description: "Follow our guided walkthrough for your router or preferred device.",
+      title: "Swap DNS in minutes",
+      description:
+        "Follow our router or device walkthrough to point your home network to the WequiGuard DNS servers.",
       accent: "secondary",
     },
     {
       icon: "checkCircle",
-      title: "Browse with Confidence",
-      description: "WequiGuard silently protects your entire network with no slowdown.",
+      title: "Browse with confidence",
+      description:
+        "SafeSearch enforcement, adult content blocking, and malware protection switch on immediately for every device.",
       accent: "accent",
     },
   ],
   finalCta: {
-    heading: "Ready to Create a Safer Internet for Your Family?",
-    subheading: "Join thousands of families protecting their digital lives with WequiGuard.",
-    cta: { label: "Set Up WequiGuard Now", href: "/setup", variant: "secondary" },
+    heading: "Ready to lock down your home internet?",
+    subheading:
+      "Join families using WequiGuard as their free, family-safe DNS filter to block adult content, scams, and malware at the network level—no subscriptions or apps required.",
+    cta: {
+      label: "Set up WequiGuard",
+      href: "/setup",
+      variant: "secondary",
+    },
   },
 };
 
 export const featureContent: FeatureContent = {
-  title: "Powerful Protection, Simple Setup",
-  description: "WequiGuard works at the network level, filtering content on every device connected to your Wi-Fi.",
+  title: "Powerful DNS parental control for clean, safe home internet",
+  description:
+    "WequiGuard filters traffic at the DNS layer so every device on your Wi-Fi gets the same family-safe protection. Block adult and harmful websites, enforce SafeSearch, reduce malware and phishing risks, and keep your privacy with a fast, zero-log DNS resolver.",
   features: [
     {
       icon: "shieldBan",
-      title: "Block Harmful Content",
-      description: "Automatically block access to pornography, gambling, violent, and extremist material.",
+      title: "Block harmful & adult content",
+      description:
+        "Automatically stop pornography, explicit and obscene sites, gambling, dating, and other unsafe categories before pages ever load on your devices.",
       accent: "primary",
     },
     {
       icon: "search",
-      title: "SafeSearch Enforcement",
-      description: "Force SafeSearch on Google, Bing, DuckDuckGo, and other popular search engines.",
+      title: "SafeSearch & YouTube Restricted",
+      description:
+        "Force SafeSearch on major search engines and lock YouTube into Restricted Mode to hide adult and sensitive videos across browsers and devices.",
       accent: "secondary",
     },
     {
       icon: "shieldCheck",
-      title: "Malware & Phishing Protection",
-      description: "DNS filtering keeps known malicious domains away from your household devices.",
+      title: "Malware & phishing shield",
+      description:
+        "Use constantly updated threat intelligence to block known malware, spyware, phishing, and scam domains—helping secure every click on your network.",
       accent: "accent",
     },
     {
       icon: "lock",
-      title: "No Tracking, Total Privacy",
-      description: "We do not log browsing history or sell data—privacy is a foundational principle.",
+      title: "Privacy-first DNS with zero logs",
+      description:
+        "We operate with a strict zero-logs stance. We don’t store or sell your browsing history, and we don’t build advertising profiles from your DNS traffic.",
       accent: "primary",
     },
     {
       icon: "laptop",
-      title: "Works on All Devices",
-      description: "Protect phones, laptops, tablets, smart TVs, consoles, and IoT devices without extra installs.",
+      title: "Network-wide coverage",
+      description:
+        "Set WequiGuard at the router once and every connected device—including guest and smart home devices—automatically benefits from the same DNS filtering.",
       accent: "secondary",
     },
     {
       icon: "dollarSign",
-      title: "Completely Free",
-      description: "WequiGuard remains a free service because online safety should be accessible to everyone.",
+      title: "Free forever for families",
+      description:
+        "WequiGuard’s core family-safe DNS filter is free to use with no trials, no credit card, and no surprise upsells—because safe internet should be accessible.",
       accent: "accent",
     },
   ],
   supportingStatement: {
-    title: "Network-Level Protection That Just Works",
+    title: "Network-level protection without extra apps",
     description:
-      "Unlike browser extensions or apps, WequiGuard protects at the DNS layer so every device connected to your network is automatically covered—no installs required.",
+      "Unlike browser extensions or per-device parental control apps, WequiGuard runs at the DNS layer. Once your router or devices use our DNS servers, every phone, laptop, TV, console, and smart device on that network automatically gets the same clean, family-safe browsing experience.",
   },
 };
 
@@ -113,22 +156,26 @@ export const setupContent: SetupContent = {
       id: "router",
       name: "Router",
       icon: "router",
-      description: "Protect every device on your Wi-Fi network in one go.",
+      description:
+        "Protect every device on your home Wi-Fi in one go by changing the DNS on your router.",
       recommended: true,
       sections: [
         {
           steps: [
             {
               title: "Access your router's admin panel",
-              description: "Open a browser, enter your router IP (e.g., 192.168.1.1), and log in with your admin credentials.",
+              description:
+                "Open a browser, enter your router IP (e.g., 192.168.1.1), and sign in with your admin credentials (check the sticker under the router if you’re unsure).",
             },
             {
               title: "Find DNS or Internet settings",
-              description: "Look for DNS, Network, Internet, or WAN sections—naming varies per router brand.",
+              description:
+                "Look for DNS, Network, Internet, or WAN settings; some routers list DNS servers under Advanced or LAN sections.",
             },
             {
               title: "Enter the WequiGuard DNS servers",
-              description: "Replace existing DNS entries with the addresses below, then save.",
+              description:
+                "Replace any existing DNS entries with the WequiGuard family-safe DNS addresses below. If Secondary shows \"Coming soon,\" you can leave it blank for now.",
               callouts: [
                 { label: "Primary DNS", value: dnsServers.primary },
                 { label: "Secondary DNS", value: dnsServers.secondary },
@@ -136,7 +183,8 @@ export const setupContent: SetupContent = {
             },
             {
               title: "Save and restart",
-              description: "Apply the changes and restart the router if prompted to activate protection for all devices.",
+              description:
+                "Apply the changes and restart the router if prompted. All devices on your Wi-Fi will now use WequiGuard’s filtered DNS.",
             },
           ],
         },
@@ -146,21 +194,24 @@ export const setupContent: SetupContent = {
       id: "windows",
       name: "Windows",
       icon: "laptop",
-      description: "Configure DNS on a single Windows computer.",
+      description: "Configure DNS on a single Windows PC for local protection.",
       sections: [
         {
           steps: [
             {
               title: "Open Network Connections",
-              description: "Right-click the network icon → Open Network & Internet Settings → Advanced network settings.",
+              description:
+                "Right-click the network icon → Open Network & Internet Settings → Advanced network settings.",
             },
             {
               title: "Edit adapter options",
-              description: "Choose Wi-Fi or Ethernet → Properties → Internet Protocol Version 4 (TCP/IPv4).",
+              description:
+                "Choose Wi-Fi or Ethernet → Properties → Internet Protocol Version 4 (TCP/IPv4).",
             },
             {
               title: "Use the DNS servers below",
-              description: "Select \"Use the following DNS server addresses\" and enter the WequiGuard values.",
+              description:
+                'Select "Use the following DNS server addresses" and enter the WequiGuard DNS values for IPv4.',
               callouts: [
                 { label: "Preferred DNS", value: dnsServers.primary },
                 { label: "Alternate DNS", value: dnsServers.secondary },
@@ -168,7 +219,8 @@ export const setupContent: SetupContent = {
             },
             {
               title: "Confirm and restart",
-              description: "Click OK to save, then restart your browser to ensure the new settings apply.",
+              description:
+                "Click OK to save, then restart your browser or PC to ensure the new DNS settings apply.",
             },
           ],
         },
@@ -178,21 +230,24 @@ export const setupContent: SetupContent = {
       id: "mac",
       name: "macOS",
       icon: "laptop",
-      description: "Configure DNS on any modern Mac.",
+      description: "Configure DNS on any modern Mac for safer browsing.",
       sections: [
         {
           steps: [
             {
               title: "Open System Settings",
-              description: "Apple menu → System Settings (or System Preferences on older versions).",
+              description:
+                "Click the Apple menu → System Settings (or System Preferences on older versions).",
             },
             {
               title: "Select Network",
-              description: "Choose your active connection (Wi-Fi or Ethernet) and open the Advanced options.",
+              description:
+                "Choose your active connection (Wi-Fi or Ethernet) and open the Advanced options.",
             },
             {
-              title: "Update DNS tab",
-              description: "Add the WequiGuard DNS addresses in the DNS tab, then press OK.",
+              title: "Update the DNS tab",
+              description:
+                "Add the WequiGuard DNS addresses in the DNS tab, then press OK to confirm.",
               callouts: [
                 { label: "Primary DNS", value: dnsServers.primary },
                 { label: "Secondary DNS", value: dnsServers.secondary },
@@ -200,7 +255,8 @@ export const setupContent: SetupContent = {
             },
             {
               title: "Apply changes",
-              description: "Click Apply to confirm. Your Mac's traffic is now filtered by WequiGuard.",
+              description:
+                "Click Apply to save. Your Mac’s traffic now goes through WequiGuard’s family-safe DNS filter.",
             },
           ],
         },
@@ -210,19 +266,28 @@ export const setupContent: SetupContent = {
       id: "mobile",
       name: "Mobile",
       icon: "smartphone",
-      description: "Protect iOS and Android devices individually.",
+      description:
+        "Protect iOS and Android phones or tablets individually with WequiGuard DNS.",
       sections: [
         {
           heading: "iOS / iPadOS",
           steps: [
-            { title: "Open Wi-Fi settings", description: "Settings → Wi-Fi, then tap the (i) icon next to your network." },
-            { title: "Configure DNS manually", description: "Tap Configure DNS → Manual and remove old servers." },
+            {
+              title: "Open Wi-Fi settings",
+              description: "Go to Settings → Wi-Fi, then tap the (i) icon next to your network.",
+            },
+            {
+              title: "Configure DNS manually",
+              description:
+                "Tap Configure DNS → Manual, remove old servers, and add the new ones.",
+            },
             {
               title: "Add WequiGuard DNS",
-              description: "Add both DNS addresses below, then tap Save.",
+              description:
+                "Add both WequiGuard DNS entries below, then tap Save to apply the change.",
               callouts: [
-                { label: "DNS 1", value: dnsServers.primary },
-                { label: "DNS 2", value: dnsServers.secondary },
+                { label: "DNS 1", value: dnsServerNames.primary },
+                { label: "DNS 2", value: dnsServerNames.secondary },
               ],
             },
           ],
@@ -230,14 +295,23 @@ export const setupContent: SetupContent = {
         {
           heading: "Android",
           steps: [
-            { title: "Open Wi-Fi settings", description: "Settings → Network & Internet → Internet, then tap your active network." },
-            { title: "Edit advanced options", description: "Choose Advanced settings and switch IP settings to Static." },
+            {
+              title: "Open Wi-Fi settings",
+              description:
+                "Go to Settings → Network & Internet → Internet, then tap your active Wi-Fi network.",
+            },
+            {
+              title: "Edit advanced options",
+              description:
+                "Choose Advanced or IP settings and switch from DHCP to Static or Custom if required by your device.",
+            },
             {
               title: "Enter DNS addresses",
-              description: "Fill DNS 1 and DNS 2 with the WequiGuard values and save.",
+              description:
+                "Fill DNS 1 and DNS 2 with the WequiGuard DNS values below and save the configuration.",
               callouts: [
-                { label: "DNS 1", value: dnsServers.primary },
-                { label: "DNS 2", value: dnsServers.secondary },
+                { label: "DNS 1", value: dnsServerNames.primary },
+                { label: "DNS 2", value: dnsServerNames.secondary },
               ],
             },
           ],
@@ -248,15 +322,18 @@ export const setupContent: SetupContent = {
   troubleshooting: [
     {
       title: "Settings didn't save?",
-      description: "Ensure you confirmed the changes (Save or Apply) and restart the device or router if needed.",
+      description:
+        "Double-check that you clicked Save or Apply in your router or device settings and restart the device or router if needed.",
     },
     {
       title: "Internet feels slow?",
-      description: "DNS changes rarely impact speed. Try flushing the DNS cache or rebooting the router.",
+      description:
+        "DNS changes rarely cause speed issues. Try flushing the DNS cache or rebooting your router and modem to refresh connections.",
     },
     {
       title: "How do I verify it's working?",
-      description: "Visit a test site with blocked content—WequiGuard should immediately prevent access.",
+      description:
+        "Visit a site with adult content or use a DNS test page—WequiGuard should block it. You can also confirm your device’s DNS points to the WequiGuard servers.",
     },
   ],
 };
@@ -266,52 +343,52 @@ export const faqContent: FaqContent = {
     {
       question: "Is WequiGuard really free?",
       answer:
-        "Yes. WequiGuard is completely free to use with no hidden fees or premium tiers—we believe online safety should be universal.",
+        "Yes. WequiGuard’s core family-safe DNS filtering is completely free to use with no upsells, trials, or hidden tiers. Our goal is to make clean, safe internet accessible to every household.",
     },
     {
       question: "How does WequiGuard work?",
       answer:
-        "WequiGuard uses DNS filtering. Every domain request is checked against our safety database; harmful categories are blocked before a page loads.",
+        "WequiGuard uses DNS filtering. When a device on your network requests a website, the domain is checked against our curated safety index. Harmful categories like adult content, gambling, and malware are blocked at the DNS layer before the page can load.",
     },
     {
       question: "Will it slow down my internet?",
       answer:
-        "DNS resolution happens in milliseconds. Most households see no slowdown, and some experience faster browsing because malicious hosts are blocked early.",
+        "DNS lookups happen in milliseconds. Most homes don’t see any slowdown—and many notice faster browsing because malicious and tracking domains are blocked before they can connect.",
     },
     {
       question: "Can I whitelist or blacklist specific websites?",
       answer:
-        "We currently focus on curated category protection for simplicity, but customizable allow/deny lists are on the roadmap.",
+        "Today, WequiGuard focuses on simple, category-based protection that works out of the box. Custom allow/deny lists and per-profile policies are on our roadmap for future premium features.",
     },
     {
       question: "Do you log my browsing data?",
       answer:
-        "No. We do not log DNS queries or sell user data. Privacy is a default stance, not an afterthought.",
+        "No. We operate with a privacy-first, zero-log mindset. We don’t store or sell your DNS query history, and we don’t build advertising profiles from your traffic. Limited, aggregated metrics may be used only to keep the service reliable and secure.",
     },
     {
       question: "What if I need help with the setup?",
       answer:
-        "Use the guided Setup page for routers and devices. For additional help, contact support and we'll walk you through it.",
+        "Start with the guided Setup page for routers, Windows, macOS, iOS, and Android. If you get stuck, reach out to our support team and we’ll walk you through the DNS configuration step by step.",
     },
     {
       question: "Does it work on all devices?",
       answer:
-        "Yes. Router-level setup covers phones, laptops, TVs, consoles, and smart home devices automatically.",
+        "Yes. Router-level setup covers every device on your home network automatically—phones, laptops, smart TVs, gaming consoles, and smart home devices all benefit from the same DNS filtering.",
     },
     {
       question: "What categories of content are blocked?",
       answer:
-        "Adult content, gambling, malware, phishing, violent and extremist material, and more. SafeSearch is enforced on major search engines.",
+        "We focus on blocking adult content, pornography, gambling, malware, phishing, and violent or extremist material. SafeSearch is also enforced on major search engines where technically possible.",
     },
     {
       question: "Can I use WequiGuard at work or school?",
       answer:
-        "Yes, if you control DNS settings. Always coordinate with IT administrators before changing managed networks.",
+        "Yes, as long as you’re allowed to manage DNS settings. Always coordinate with your IT or network administrator before changing DNS on company or school networks.",
     },
     {
-      question: "Is WequiGuard better than parental control software?",
+      question: "Is WequiGuard a replacement for parental control software?",
       answer:
-        "Each tool solves different problems. Many families pair network-level DNS filtering with per-device parental controls for layered safety.",
+        "WequiGuard is a strong, DNS-level first line of defense that keeps harmful sites off your network. Many families combine DNS filtering with device-level parental control apps to manage screen time, apps, and social media for more complete protection.",
     },
   ],
   contactEmail: "support@wequiguard.com",
@@ -329,10 +406,17 @@ export const adminDashboardData: AdminDashboardData = {
     latency: { p50: 18, p95: 42, p99: 87, window: "Last 10 min" },
     cacheHitRatio: { tenMinutes: 82, oneHour: 79 },
     handshake: { successRate: 99.2, window: "10m" },
-    tls: { domain: "guard.wequitech.com", daysRemaining: 42, expiresOn: "2025-05-02T00:00:00Z", status: "ok" },
+    tls: {
+      domain: "guard.wequitech.com",
+      daysRemaining: 42,
+      expiresOn: "2025-05-02T00:00:00Z",
+      status: "ok",
+    },
     charts: {
       qpsVsError: Array.from({ length: 12 }).map((_, index) => {
-        const timestamp = new Date(Date.now() - (11 - index) * 5 * 60 * 1000).toISOString();
+        const timestamp = new Date(
+          Date.now() - (11 - index) * 5 * 60 * 1000,
+        ).toISOString();
         return {
           timestamp,
           qps: 6200 + index * 180,
@@ -340,7 +424,9 @@ export const adminDashboardData: AdminDashboardData = {
         };
       }),
       latencyP95: Array.from({ length: 12 }).map((_, index) => ({
-        timestamp: new Date(Date.now() - (11 - index) * 5 * 60 * 1000).toISOString(),
+        timestamp: new Date(
+          Date.now() - (11 - index) * 5 * 60 * 1000,
+        ).toISOString(),
         p95: 35 + (index % 4) * 4,
       })),
       trafficSplit: [
@@ -351,13 +437,33 @@ export const adminDashboardData: AdminDashboardData = {
     },
     healthBadges: [
       { title: "Upstreams", status: "healthy", description: "4/4 responsive" },
-      { title: "DB / Queue", status: "healthy", description: "QueryBatcher clear" },
-      { title: "Blocklist Sync", status: "degraded", description: "37m since last pull" },
+      {
+        title: "DB / Queue",
+        status: "healthy",
+        description: "QueryBatcher clear",
+      },
+      {
+        title: "Blocklist Sync",
+        status: "degraded",
+        description: "37m since last pull",
+      },
     ],
     quickLinks: [
-      { label: "Open Live Feed", description: "Filtered to errors", href: "/admin#live-feed" },
-      { label: "Open Health", description: "Upstreams & TLS", href: "/admin#health" },
-      { label: "Top Hot Domains", description: "Cache insights", href: "/admin#cache" },
+      {
+        label: "Open Live Feed",
+        description: "Filtered to errors",
+        href: "/admin#live-feed",
+      },
+      {
+        label: "Open Health",
+        description: "Upstreams & TLS",
+        href: "/admin#health",
+      },
+      {
+        label: "Top Hot Domains",
+        description: "Cache insights",
+        href: "/admin#cache",
+      },
     ],
     emptyState: "Waiting for traffic… Send test queries.",
   },
@@ -568,6 +674,7 @@ export const adminDashboardData: AdminDashboardData = {
         successRate: 99.1,
         avgLatency: 24,
         p95Latency: 41,
+        lastFailure: "2025-01-16T21:02:00Z - timeout",
         retriesToday: 1,
       },
       {
@@ -606,7 +713,9 @@ export const adminDashboardData: AdminDashboardData = {
       ],
     },
     timeseries: Array.from({ length: 12 }).map((_, index) => ({
-      timestamp: new Date(Date.now() - (11 - index) * 5 * 60 * 1000).toISOString(),
+      timestamp: new Date(
+        Date.now() - (11 - index) * 5 * 60 * 1000,
+      ).toISOString(),
       successRate: 98 + (index % 3),
       p95Latency: 40 + (index % 4) * 3,
     })),
@@ -620,9 +729,27 @@ export const adminDashboardData: AdminDashboardData = {
       negativeHits: 412,
     },
     hotDomains: [
-      { domain: "googleapis.com", hits10m: 1240, hits1h: 8120, avgTtl: 210, lastHit: "15s ago" },
-      { domain: "roblox.com", hits10m: 980, hits1h: 6400, avgTtl: 180, lastHit: "32s ago" },
-      { domain: "youtube.com", hits10m: 860, hits1h: 5900, avgTtl: 90, lastHit: "5s ago" },
+      {
+        domain: "googleapis.com",
+        hits10m: 1240,
+        hits1h: 8120,
+        avgTtl: 210,
+        lastHit: "15s ago",
+      },
+      {
+        domain: "roblox.com",
+        hits10m: 980,
+        hits1h: 6400,
+        avgTtl: 180,
+        lastHit: "32s ago",
+      },
+      {
+        domain: "youtube.com",
+        hits10m: 860,
+        hits1h: 5900,
+        avgTtl: 90,
+        lastHit: "5s ago",
+      },
     ],
     latency: {
       cacheMs: 18,
@@ -631,6 +758,117 @@ export const adminDashboardData: AdminDashboardData = {
     },
   },
 };
+
+export const seoMetadata = {
+  home: {
+    title: "WequiGuard | Free Family-Safe DNS Filter for Home Wi-Fi",
+    description:
+      "Free, zero-log DNS parental control that blocks adult content, gambling, malware, and scams for every device on your home Wi-Fi. Enforce SafeSearch in minutes.",
+    keywords: [
+      "family-safe DNS",
+      "free DNS content filter",
+      "parental control DNS",
+      "block adult content",
+      "SafeSearch DNS",
+      "malware blocking DNS",
+      "home WiFi filter",
+    ],
+  },
+  features: {
+    title: "WequiGuard Features | DNS Parental Control & SafeSearch",
+    description:
+      "Explore WequiGuard’s DNS filtering features: adult and gambling blocking, SafeSearch enforcement, malware and phishing protection, and privacy-first zero-log DNS.",
+    keywords: [
+      "SafeSearch enforcement",
+      "DNS parental control features",
+      "family internet filter",
+      "zero log DNS",
+      "YouTube Restricted Mode",
+      "DNS firewall",
+    ],
+  },
+  setup: {
+    title: "WequiGuard Setup Guide | Router & Device DNS Instructions",
+    description:
+      "Step-by-step DNS setup guides for routers, Windows, macOS, iOS, and Android so you can point your devices to WequiGuard and enable family-safe filtering in minutes.",
+    keywords: [
+      "DNS setup guide",
+      "router DNS instructions",
+      "WequiGuard setup",
+      "family DNS filter install",
+      "change DNS router",
+      "configure DNS Windows",
+    ],
+  },
+  faq: {
+    title: "WequiGuard FAQ | Family-Safe DNS Help & Support",
+    description:
+      "Answers to common questions about how WequiGuard blocks adult content, enforces SafeSearch, protects privacy, and keeps home internet clean for kids and families.",
+    keywords: [
+      "WequiGuard FAQ",
+      "family-safe DNS questions",
+      "DNS filter support",
+      "safe browsing for kids",
+      "parental control DNS help",
+    ],
+  },
+  admin: {
+    title: "WequiGuard Admin Dashboard | Live DNS Protection & Analytics",
+    description:
+      "Monitor DNS traffic, SafeSearch rewrites, block rates, cache health, and upstream performance in the WequiGuard admin dashboard.",
+    keywords: [
+      "WequiGuard admin dashboard",
+      "DNS analytics",
+      "SafeSearch monitoring",
+      "DNS protection dashboard",
+      "DNS security metrics",
+    ],
+  },
+  login: {
+    title: "WequiGuard Login | Access Your Family DNS Protection",
+    description:
+      "Sign in to manage your WequiGuard DNS protection, parental control policies, and connected devices.",
+    keywords: [
+      "WequiGuard login",
+      "family DNS login",
+      "DNS filter account",
+      "parental control DNS account",
+    ],
+  },
+  profile: {
+    title: "WequiGuard Profile | Manage Your DNS Account",
+    description:
+      "View and update your WequiGuard account details, DNS profiles, and notification preferences.",
+    keywords: [
+      "WequiGuard profile",
+      "manage DNS account",
+      "DNS filter settings",
+      "account settings",
+    ],
+  },
+  privacyPolicy: {
+    title: "WequiGuard Privacy Policy | Zero-Log DNS & Data Protection",
+    description:
+      "Learn how WequiGuard handles data with a strict zero-log, privacy-first approach for family-safe DNS filtering.",
+    keywords: [
+      "WequiGuard privacy policy",
+      "zero log DNS privacy",
+      "family DNS privacy",
+      "DNS data protection",
+    ],
+  },
+  termsOfService: {
+    title: "WequiGuard Terms of Service | Usage & Acceptable Use Policy",
+    description:
+      "Review the terms of service and acceptable use policy for using the WequiGuard family-safe DNS filter.",
+    keywords: [
+      "WequiGuard terms of service",
+      "DNS filter terms",
+      "acceptable use policy",
+      "DNS service agreement",
+    ],
+  },
+} as const;
 
 export const staticContent = {
   home: homeContent,
