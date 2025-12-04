@@ -20,8 +20,10 @@ export const homeContent: HomeContent = {
     primaryCta: { label: "Get Started for Free", href: "/setup", variant: "secondary" },
     secondaryCta: { label: "Learn More →", href: "/features", variant: "outline" },
     media: {
-      src: heroImage,
-      alt: "Digital protection shield with devices",
+      type: "video",
+      provider: "youtube",
+      videoId: "dQw4w9WgXcQ",
+      title: "WequiGuard walkthrough", // optional, becomes iframe title
     },
   },
   socialProof: [

@@ -9,6 +9,8 @@ import Features from "./pages/Features";
 import Setup from "./pages/Setup";
 import FAQ from "./pages/FAQ";
 import NotFound from "./pages/NotFound";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import AdminDashboard from "./pages/AdminDashboard";
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/routing/ProtectedRoute";
@@ -44,6 +46,8 @@ const App = () => (
           <Route path="/features" element={<Features />} />
           <Route path="/setup" element={<Setup />} />
           <Route path="/faq" element={<FAQ />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route
             path="/admin"
             element={

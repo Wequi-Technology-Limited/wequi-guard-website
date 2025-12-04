@@ -10,10 +10,18 @@ export interface Cta {
   variant?: "default" | "secondary" | "outline";
 }
 
-export interface MediaAsset {
-  src: string;
-  alt: string;
-}
+export type MediaAsset =
+  | {
+      type: "image";
+      src: string;
+      alt: string;
+    }
+  | {
+      type: "video";
+      provider: "youtube";
+      videoId: string;
+      title?: string;
+    };
 
 export interface HeroContent {
   eyebrow?: string;

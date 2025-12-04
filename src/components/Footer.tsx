@@ -1,5 +1,7 @@
 import { Shield, Twitter, Linkedin, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
+import Logo from "@/assets/wequi-guard.png"; // adjust path
+
 
 const Footer = () => {
   return (
@@ -8,27 +10,48 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Shield className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                WequiGuard
+              <span className="flex items-center space-x-2 text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                <img
+                  src={Logo}
+                  alt="WequiGuard logo"
+                  className="h-[50px] w-auto"
+                />
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
               Shielding Your Digital World. Effortlessly.
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+              <a
+                href="https://www.linkedin.com/company/wequi/"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-muted-foreground hover:text-primary transition-colors"
+              >
                 <Twitter className="h-5 w-5" />
               </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+
+              <a
+                href="https://www.linkedin.com/company/wequi/"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-muted-foreground hover:text-primary transition-colors"
+              >
                 <Linkedin className="h-5 w-5" />
               </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+
+              <a
+                href="mailto:support@wequiguard.com"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-muted-foreground hover:text-primary transition-colors"
+              >
                 <Mail className="h-5 w-5" />
               </a>
             </div>
+
           </div>
-          
+
           <div>
             <h3 className="font-semibold mb-4">Quick Links</h3>
             <ul className="space-y-2 text-sm">
@@ -49,37 +72,47 @@ const Footer = () => {
               </li>
             </ul>
           </div>
-          
+
           <div>
             <h3 className="font-semibold mb-4">Legal</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+                <Link
+                  to="/privacy-policy"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
                   Privacy Policy
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+                <Link
+                  to="/terms-of-service"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
                   Terms of Service
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
-          
+
           <div>
             <h3 className="font-semibold mb-4">Contact</h3>
             <p className="text-sm text-muted-foreground">
               Questions? We're here to help.
             </p>
-            <a 
-              href="mailto:support@wequiguard.com" 
+            <a
+              href="mailto:support@wequiguard.com"
               className="text-sm text-primary hover:underline inline-block mt-2"
             >
               support@wequiguard.com
             </a>
           </div>
         </div>
-        
+
         <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} WequiGuard. All rights reserved.</p>
         </div>

@@ -70,11 +70,23 @@ const Home = () => {
               </div>
             </div>
             <div className="hidden lg:block">
-              <img
-                src={hero.media.src}
-                alt={hero.media.alt}
-                className="h-auto w-full animate-in fade-in zoom-in duration-1000 drop-shadow-2xl"
-              />
+              {hero.media.type === "video" ? (
+                <div className="relative aspect-video w-full max-w-xl overflow-hidden rounded-xl shadow-lg">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${hero.media.videoId}`}
+                    title={hero.media.title ?? "WequiGuard video overview"}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="h-full w-full"
+                  />
+                </div>
+              ) : (
+                <img
+                  src={hero.media.src}
+                  alt={hero.media.alt}
+                  className="w-full max-w-xl rounded-xl shadow-lg"
+                />
+              )}
             </div>
           </div>
         </div>
