@@ -12,14 +12,16 @@ const emitAuthChanged = () => {
 
 export interface StoredAuthPayload {
   token: string;
+  access_token?: string;
   user: AuthUser;
   stored_at: string;
 }
 
-export const saveAuthPayload = (token: string, user: AuthUser) => {
+export const saveAuthPayload = (token: string, user: AuthUser, access_token?: string) => {
   if (!isBrowser()) return;
   const payload: StoredAuthPayload = {
     token,
+    access_token,
     user,
     stored_at: new Date().toISOString(),
   };
@@ -39,7 +41,11 @@ export const getStoredAuthPayload = (): StoredAuthPayload | null => {
   }
 };
 
-export const getStoredAuthToken = () => getStoredAuthPayload()?.token;
+export const getStoredAuthToken = () => {
+  const payload = getStoredAuthPayload();
+  if (!payload) return null;
+  return payload.access_token || payload.token;
+};
 
 export const clearStoredAuthPayload = () => {
   if (!isBrowser()) return;

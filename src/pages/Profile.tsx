@@ -31,27 +31,33 @@ const formatProfileDate = (value?: string) => {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
 };
 
-const ProfileDetails = ({ user }: { user: AuthUser }) => (
-  <Card className="rounded-3xl border border-slate-200 shadow-lg">
-    <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <div>
-        <CardTitle className="text-2xl font-semibold capitalize">{user?.username}</CardTitle>
-        <CardDescription>{user?.email}</CardDescription>
-      </div>
-      <Badge variant={user?.is_active ? "secondary" : "destructive"}>{user?.is_active ? "Active" : "Inactive"}</Badge>
-    </CardHeader>
-    <CardContent>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <ProfileField label="User ID" value={`#${user?.id ?? "—"}`} />
-        <ProfileField label="Username" value={user?.username ?? "—"} />
-        <ProfileField label="Email" value={user?.email ?? "—"} />
-        <ProfileField label="Status" value={user?.is_active ? "Active" : "Inactive"} />
-        <ProfileField label="Created" value={formatProfileDate(user?.created_at)} />
-        <ProfileField label="Last updated" value={formatProfileDate(user?.updated_at)} />
-      </div>
-    </CardContent>
-  </Card>
-);
+const ProfileDetails = ({ user }: { user: AuthUser }) => {
+  const displayName = user?.username || user?.name || "User";
+  const email = user?.email || "—";
+  const status = (user?.is_active ?? false) ? "Active" : "Inactive";
+
+  return (
+    <Card className="rounded-3xl border border-slate-200 shadow-lg">
+      <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <CardTitle className="text-2xl font-semibold capitalize">{displayName}</CardTitle>
+          <CardDescription>{email}</CardDescription>
+        </div>
+        <Badge variant={status === "Active" ? "secondary" : "destructive"}>{status}</Badge>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ProfileField label="User ID" value={user?.id ? `#${user.id}` : "—"} />
+          <ProfileField label="Username" value={user?.username || user?.name || "—"} />
+          <ProfileField label="Email" value={email} />
+          <ProfileField label="Status" value={status} />
+          <ProfileField label="Created" value={formatProfileDate(user?.created_at)} />
+          <ProfileField label="Last updated" value={formatProfileDate(user?.updated_at)} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const ProfileField = ({ label, value }: { label: string; value: string }) => (
   <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">

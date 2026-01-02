@@ -29,6 +29,9 @@ const getInitials = (value?: string) => {
 
 const AdminShell = ({ children, navItems }: AdminShellProps) => {
   const { user, logout } = useAuthUser();
+  const displayName = user?.username || user?.name || "User";
+  const displayEmail = user?.email || "—";
+  const avatarLabel = user?.username || user?.name || user?.email;
 
   return (
     <div className="flex min-h-screen bg-muted/30 text-foreground">
@@ -76,8 +79,8 @@ const AdminShell = ({ children, navItems }: AdminShellProps) => {
               {user ? (
                 <>
                   <div className="text-right text-sm">
-                    <p className="font-semibold text-foreground capitalize">{user.username}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <p className="font-semibold text-foreground capitalize">{displayName}</p>
+                    <p className="text-xs text-muted-foreground">{displayEmail}</p>
                   </div>
                   <Link
                     to="/profile"
@@ -85,7 +88,7 @@ const AdminShell = ({ children, navItems }: AdminShellProps) => {
                     rel="noreferrer"
                     className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold uppercase text-primary"
                   >
-                    {getInitials(user.username)}
+                    {getInitials(avatarLabel)}
                   </Link>
                   <Button variant="outline" size="sm" className="rounded-full px-4" onClick={logout}>
                     Logout
