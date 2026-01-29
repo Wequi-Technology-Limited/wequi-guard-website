@@ -126,7 +126,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.location.hash = href;
                 }
                 
-                // Focus the target for accessibility
+                // Focus the target for accessibility (ensure it's focusable)
+                if (!targetElement.hasAttribute('tabindex')) {
+                    targetElement.setAttribute('tabindex', '-1');
+                }
                 targetElement.focus({ preventScroll: true });
             }
         });
@@ -170,11 +173,9 @@ function highlightActiveSection() {
     tocLinks.forEach(link => {
         const href = link.getAttribute('href');
         if (href === `#${currentSection}`) {
-            link.style.color = '#2563eb';
-            link.style.fontWeight = '600';
+            link.classList.add('active');
         } else {
-            link.style.color = '';
-            link.style.fontWeight = '';
+            link.classList.remove('active');
         }
     });
 }
@@ -188,36 +189,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Add loading performance optimization
-if ('loading' in HTMLImageElement.prototype) {
-    // Browser supports lazy loading
-    const images = document.querySelectorAll('img[loading="lazy"]');
-    images.forEach(img => {
-        img.loading = 'lazy';
-    });
-}
 
-// Accessibility: Announce dynamic content changes
-function announceToScreenReader(message) {
-    const announcement = document.createElement('div');
-    announcement.setAttribute('role', 'status');
-    announcement.setAttribute('aria-live', 'polite');
-    announcement.className = 'sr-only';
-    announcement.textContent = message;
-    announcement.style.cssText = `
-        position: absolute;
-        left: -10000px;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-    `;
-    
-    document.body.appendChild(announcement);
-    
-    setTimeout(() => {
-        announcement.remove();
-    }, 1000);
-}
 
 // Export functions for inline usage
 window.printPage = printPage;

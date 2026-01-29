@@ -244,6 +244,11 @@ body {
     color: var(--primary-color);
 }
 
+.toc nav ol li a.active {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
 .toc nav ol li a:focus {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
@@ -593,7 +598,7 @@ li::marker {
         color: black;
     }
     
-    a[href]:after {
+    a[href^="http"]:after {
         content: " (" attr(href) ")";
         font-size: 0.8em;
     }
