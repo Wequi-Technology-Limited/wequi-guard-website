@@ -391,7 +391,7 @@ export const faqContent: FaqContent = {
         "WequiGuard is a strong, DNS-level first line of defense that keeps harmful sites off your network. Many families combine DNS filtering with device-level parental control apps to manage screen time, apps, and social media for more complete protection.",
     },
   ],
-  contactEmail: "support@wequiguard.com",
+  contactEmail: "support@wequitech.com",
 };
 
 export const adminDashboardData: AdminDashboardData = {

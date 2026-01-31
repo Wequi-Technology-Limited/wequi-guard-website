@@ -41,7 +41,7 @@ const Footer = () => {
               </a>
 
               <a
-                href="mailto:support@wequiguard.com"
+                href="mailto:support@wequitech.com"
                 target="_blank"
                 rel="noreferrer noopener"
                 className="text-muted-foreground hover:text-primary transition-colors"
@@ -105,10 +105,10 @@ const Footer = () => {
               Questions? We're here to help.
             </p>
             <a
-              href="mailto:support@wequiguard.com"
+              href="mailto:support@wequitech.com"
               className="text-sm text-primary hover:underline inline-block mt-2"
             >
-              support@wequiguard.com
+              support@wequitech.com
             </a>
           </div>
         </div>
